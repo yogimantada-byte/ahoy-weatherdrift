@@ -975,35 +975,86 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
 
 <!-- ADD CUSTOM CITY -->
 <section class="add-city-section" style="margin-top:60px;">
-  <div class="section-label">➕ Add Custom City</div>
+  <div class="section-label">➕ Add Location</div>
   <div style="background:var(--card-bg);border:2px solid var(--border);padding:30px;">
-    <div style="font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:16px;letter-spacing:1px;">
-      Type any city name in the world — we'll find it automatically.
+
+    <!-- Mode toggle -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+      <button class="chart-tab active" id="mode-search" onclick="setAddMode('search')">🔍 Quick Search</button>
+      <button class="chart-tab" id="mode-browse" onclick="setAddMode('browse')">🗂 Browse by Region</button>
     </div>
-    <div class="add-city-form">
-      <div class="form-group" style="flex:1;min-width:220px;position:relative;">
-        <label class="form-label">City Name</label>
-        <input class="form-input" id="add-city-name" placeholder="e.g. London, New York, Paris..."
-          type="text" autocomplete="off" oninput="geocodeSearch(this.value)" style="width:100%;">
-        <div id="geocode-results" style="
-          display:none;position:absolute;top:100%;left:0;right:0;
-          background:#1a1a22;border:1px solid rgba(255,255,255,.12);
-          border-radius:4px;z-index:300;max-height:220px;overflow-y:auto;margin-top:2px;">
+
+    <!-- QUICK SEARCH MODE -->
+    <div id="add-mode-search">
+      <div style="font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:16px;letter-spacing:1px;">
+        Search any city, town, village, hamlet or rural area worldwide.
+      </div>
+      <div class="add-city-form">
+        <div class="form-group" style="flex:1;min-width:220px;position:relative;">
+          <label class="form-label">Place Name</label>
+          <input class="form-input" id="add-city-name" placeholder="e.g. Korlakota, Naupada, Etcherla..."
+            type="text" autocomplete="off" oninput="geocodeSearch(this.value)" style="width:100%;">
+          <div id="geocode-results" style="
+            display:none;position:absolute;top:100%;left:0;right:0;
+            background:#1a1a22;border:1px solid rgba(255,255,255,.12);
+            border-radius:4px;z-index:300;max-height:260px;overflow-y:auto;margin-top:2px;">
+          </div>
+        </div>
+        <div class="form-group" style="min-width:110px;">
+          <label class="form-label">Lat (auto)</label>
+          <input class="form-input" id="add-city-lat" placeholder="Auto" type="text" readonly
+            style="width:110px;background:rgba(0,0,0,.1);color:var(--muted);cursor:not-allowed;">
+        </div>
+        <div class="form-group" style="min-width:110px;">
+          <label class="form-label">Lon (auto)</label>
+          <input class="form-input" id="add-city-lon" placeholder="Auto" type="text" readonly
+            style="width:110px;background:rgba(0,0,0,.1);color:var(--muted);cursor:not-allowed;">
+        </div>
+        <button class="btn-add" id="add-city-btn" onclick="addCustomCity()" disabled
+          style="opacity:.5;cursor:not-allowed;">+ Add</button>
+      </div>
+    </div>
+
+    <!-- BROWSE MODE -->
+    <div id="add-mode-browse" style="display:none;">
+      <div style="font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:16px;letter-spacing:1px;">
+        Drill down: Country → State → District → Sub-District → Mandal → Village
+      </div>
+
+      <!-- Breadcrumb trail -->
+      <div id="hier-breadcrumb" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;min-height:28px;align-items:center;">
+        <span style="font-family:'Space Mono',monospace;font-size:.62rem;color:#666;">Start typing to explore...</span>
+      </div>
+
+      <!-- Search within level -->
+      <div style="position:relative;margin-bottom:12px;">
+        <input class="form-input" id="hier-search" placeholder="Search within current level..." type="text"
+          oninput="hierSearch(this.value)" style="width:100%;max-width:400px;">
+      </div>
+
+      <!-- Results list -->
+      <div id="hier-results" style="
+        background:var(--paper);border:1px solid var(--border);border-radius:4px;
+        max-height:320px;overflow-y:auto;">
+        <div id="hier-results-inner" style="padding:8px 0;">
+          <div style="padding:12px 16px;font-family:monospace;font-size:.68rem;color:#666;">
+            Type a country, state or district name to begin browsing.
+          </div>
         </div>
       </div>
-      <div class="form-group" style="min-width:130px;">
-        <label class="form-label">Lat (auto)</label>
-        <input class="form-input" id="add-city-lat" placeholder="Auto-filled" type="text" readonly
-          style="width:130px;background:rgba(0,0,0,.1);color:var(--muted);cursor:not-allowed;">
+
+      <!-- Selected location display -->
+      <div id="hier-selected" style="display:none;margin-top:16px;padding:16px;background:rgba(232,68,26,.08);border:1px solid rgba(232,68,26,.3);border-radius:4px;">
+        <div style="font-family:'Space Mono',monospace;font-size:.62rem;color:#e8441a;letter-spacing:1px;margin-bottom:6px;">SELECTED LOCATION</div>
+        <div id="hier-selected-name" style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--ink);letter-spacing:2px;"></div>
+        <div id="hier-selected-path" style="font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:4px;"></div>
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+          <button class="btn-add" id="hier-add-btn" onclick="addHierCity()">+ Add to Weather List</button>
+          <button class="action-btn btn-twitter" onclick="previewHierCity()" style="font-size:.68rem;">👁 Preview Weather</button>
+        </div>
       </div>
-      <div class="form-group" style="min-width:130px;">
-        <label class="form-label">Lon (auto)</label>
-        <input class="form-input" id="add-city-lon" placeholder="Auto-filled" type="text" readonly
-          style="width:130px;background:rgba(0,0,0,.1);color:var(--muted);cursor:not-allowed;">
-      </div>
-      <button class="btn-add" id="add-city-btn" onclick="addCustomCity()" disabled
-        style="opacity:.5;cursor:not-allowed;">+ Add City</button>
     </div>
+
     <div id="add-msg" class="add-msg" style="display:none;margin-top:12px;"></div>
   </div>
 </section>
@@ -1656,6 +1707,183 @@ function loadCompare() {
   });
 }
 
+// ── Mode toggle ────────────────────────────────────────────────────────────
+function setAddMode(mode) {
+  document.getElementById('add-mode-search').style.display = mode==='search' ? 'block' : 'none';
+  document.getElementById('add-mode-browse').style.display = mode==='browse' ? 'block' : 'none';
+  document.getElementById('mode-search').classList.toggle('active', mode==='search');
+  document.getElementById('mode-browse').classList.toggle('active', mode==='browse');
+}
+
+// ── Hierarchical browser ───────────────────────────────────────────────────
+const HIER_LEVELS = ['country','state','district','subdistrict','mandal','village'];
+const HIER_LABELS = {
+  country:'Country', state:'State / Province', district:'District',
+  subdistrict:'Sub-District', mandal:'Mandal / Taluk', village:'Village / Hamlet'
+};
+const HIER_ICONS = {
+  country:'🌍', state:'🗺️', district:'📍', subdistrict:'🏘️', mandal:'🌾', village:'🏡'
+};
+
+let hierStack  = [];   // [{level, name, osm_id, lat, lon, country_code, country_name, state, district}]
+let hierSelected = null;
+let hierTimer  = null;
+
+function hierSearch(q) {
+  clearTimeout(hierTimer);
+  if (!q.trim()) { renderHierResults([]); return; }
+  document.getElementById('hier-results-inner').innerHTML =
+    '<div style="padding:12px 16px;font-family:monospace;font-size:.65rem;color:#888;">Searching...</div>';
+  const parentId = hierStack.length ? hierStack[hierStack.length-1].osm_id : '';
+  const level    = hierStack.length < HIER_LEVELS.length ? HIER_LEVELS[hierStack.length] : 'village';
+  hierTimer = setTimeout(()=>{
+    fetch(`/api/hierarchy?q=${encodeURIComponent(q)}&parent_osm_id=${parentId}&level=${level}`)
+      .then(r=>r.json())
+      .then(d=>renderHierResults(d.results||[], level))
+      .catch(()=>renderHierResults([]));
+  }, 380);
+}
+
+function renderHierResults(results, level) {
+  const inner = document.getElementById('hier-results-inner');
+  if (!results.length) {
+    inner.innerHTML='<div style="padding:12px 16px;font-family:monospace;font-size:.65rem;color:#666;">No results. Try a different name.</div>';
+    return;
+  }
+  const currentLevel = level || (hierStack.length < HIER_LEVELS.length ? HIER_LEVELS[hierStack.length] : 'village');
+  const nextLevel    = HIER_LEVELS[HIER_LEVELS.indexOf(currentLevel)+1];
+  inner.innerHTML = results.map((r,i) => {
+    const isLeaf = !nextLevel || r.place_type?.toLowerCase().match(/village|hamlet|locality|neighbourhood|suburb|isolated/);
+    const action = isLeaf
+      ? `onclick="selectHierPlace(${i}, true)"  style="cursor:pointer;"`
+      : `onclick="selectHierPlace(${i}, false)" style="cursor:pointer;"`;
+    const rightLabel = isLeaf
+      ? `<span style="color:#00c853;font-size:.58rem;font-weight:700;white-space:nowrap;">SELECT ✓</span>`
+      : `<span style="color:#e8441a;font-size:.58rem;white-space:nowrap;">${HIER_ICONS[nextLevel]||'▶'} ${HIER_LABELS[nextLevel]||'Drill down'} →</span>`;
+    return `<div data-idx="${i}" ${action} style="
+        padding:11px 16px;display:flex;justify-content:space-between;align-items:center;
+        border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.68rem;color:var(--ink);
+        transition:background .15s;"
+        onmouseover="this.style.background='rgba(232,68,26,.08)'"
+        onmouseout="this.style.background='transparent'">
+      <div>
+        <div style="font-weight:600;">${HIER_ICONS[currentLevel]||'📍'} ${r.name}</div>
+        <div style="color:var(--muted);font-size:.58rem;margin-top:2px;">${r.display||r.name}</div>
+      </div>
+      ${rightLabel}
+    </div>`;
+  }).join('');
+  inner._results = results;
+  inner._level   = currentLevel;
+}
+
+function selectHierPlace(idx, isLeaf) {
+  const inner   = document.getElementById('hier-results-inner');
+  const results = inner._results || [];
+  const level   = inner._level   || 'country';
+  const r = results[idx]; if (!r) return;
+
+  if (isLeaf) {
+    // This is the final selection — show selected panel
+    hierSelected = r;
+    document.getElementById('hier-selected-name').textContent = r.name;
+    document.getElementById('hier-selected-path').textContent =
+      (r.display||r.name) + (r.lat ? ` · ${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}` : '');
+    document.getElementById('hier-selected').style.display = 'block';
+    updateBreadcrumb(r, level);
+  } else {
+    // Drill down — push onto stack and search children
+    hierStack.push({...r, level});
+    updateBreadcrumb(null, null);
+    document.getElementById('hier-search').value = '';
+    document.getElementById('hier-search').placeholder = `Search within ${r.name}...`;
+    // Auto-fetch children
+    fetch(`/api/hierarchy?parent_osm_id=${r.osm_id}&level=${HIER_LEVELS[HIER_LEVELS.indexOf(level)+1]||'village'}`)
+      .then(res=>res.json())
+      .then(d=>{
+        const children = d.results||[];
+        renderHierResults(children, HIER_LEVELS[HIER_LEVELS.indexOf(level)+1]||'village');
+        if (!children.length) {
+          // No admin children — treat parent itself as leaf
+          hierSelected = r;
+          document.getElementById('hier-selected-name').textContent = r.name;
+          document.getElementById('hier-selected-path').textContent = r.display||r.name;
+          document.getElementById('hier-selected').style.display='block';
+        }
+      })
+      .catch(()=>renderHierResults([]));
+  }
+}
+
+function updateBreadcrumb(selected, level) {
+  const bc = document.getElementById('hier-breadcrumb');
+  const parts = [
+    `<span onclick="hierGoHome()" style="cursor:pointer;font-family:'Space Mono',monospace;font-size:.62rem;color:#e8441a;">🌍 Home</span>`
+  ];
+  hierStack.forEach((s,i) => {
+    parts.push(`<span style="color:#555;font-size:.7rem;">›</span>`);
+    parts.push(`<span onclick="hierGoBack(${i})" style="cursor:pointer;font-family:'Space Mono',monospace;font-size:.62rem;color:var(--ink);text-decoration:underline;">${s.name}</span>`);
+  });
+  if (selected) {
+    parts.push(`<span style="color:#555;font-size:.7rem;">›</span>`);
+    parts.push(`<span style="font-family:'Space Mono',monospace;font-size:.62rem;color:#00c853;font-weight:700;">${selected.name}</span>`);
+  }
+  bc.innerHTML = parts.join(' ');
+}
+
+function hierGoHome() {
+  hierStack = [];
+  hierSelected = null;
+  document.getElementById('hier-selected').style.display='none';
+  document.getElementById('hier-search').value='';
+  document.getElementById('hier-search').placeholder='Search within current level...';
+  document.getElementById('hier-results-inner').innerHTML=
+    '<div style="padding:12px 16px;font-family:monospace;font-size:.68rem;color:#666;">Type a country, state or district name to begin browsing.</div>';
+  document.getElementById('hier-breadcrumb').innerHTML=
+    '<span style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:#666;">Start typing to explore...</span>';
+}
+
+function hierGoBack(idx) {
+  hierStack = hierStack.slice(0, idx);
+  hierSelected = null;
+  document.getElementById('hier-selected').style.display='none';
+  document.getElementById('hier-search').value='';
+  const parentName = hierStack.length ? hierStack[hierStack.length-1].name : '';
+  document.getElementById('hier-search').placeholder = parentName ? `Search within ${parentName}...` : 'Search within current level...';
+  updateBreadcrumb(null,null);
+  renderHierResults([]);
+}
+
+function addHierCity() {
+  if (!hierSelected) return;
+  const r = hierSelected;
+  const nameEl = document.getElementById('add-city-name');
+  // Temporarily set values so addCustomCity() can read them
+  nameEl.value = r.name;
+  nameEl.dataset.countryCode = r.country_code || 'CUSTOM';
+  nameEl.dataset.countryName = r.country_name || 'Custom';
+  document.getElementById('add-city-lat').value = r.lat;
+  document.getElementById('add-city-lon').value = r.lon;
+  addCustomCity();
+}
+
+function previewHierCity() {
+  if (!hierSelected) return;
+  const r = hierSelected;
+  document.getElementById('featured-loading').style.display='inline';
+  document.querySelector('.featured-section').scrollIntoView({behavior:'smooth',block:'start'});
+  fetch(`/api/preview?lat=${r.lat}&lon=${r.lon}&name=${encodeURIComponent(r.name)}&country=${encodeURIComponent(r.country_name||'')}`)
+    .then(res=>res.json())
+    .then(d=>{
+      updateFeaturedPanel(d);
+      updateForecast(d.city, d.forecast||[]);
+      document.getElementById('featured-loading').style.display='none';
+      const badge = document.getElementById('preview-badge');
+      if (badge) badge.style.display='inline-flex';
+    })
+    .catch(()=>{ document.getElementById('featured-loading').style.display='none'; });
+}
+
 // ── Geocode search (OpenStreetMap Nominatim) ──────────────────────────────
 let geocodeTimer = null;
 let _geoResults  = [];
@@ -2119,7 +2347,169 @@ def geocode():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/add-city", methods=["POST"])
+@app.route("/api/hierarchy")
+def api_hierarchy():
+    """
+    Drill down through administrative hierarchy using Nominatim.
+    level: 'country' | 'state' | 'district' | 'subdistrict' | 'mandal' | 'village'
+    parent_osm_id: the OSM relation ID of the parent to drill into
+    q: free-text search within a level
+    """
+    level      = request.args.get("level", "country")
+    parent_id  = request.args.get("parent_osm_id", "")
+    q          = request.args.get("q", "").strip()
+
+    # Map our level names to OSM admin_level values (varies by country, these are approximate)
+    # For India: state=4, district=5 or 6, subdistrict/taluk=7 or 8, village=10 or place
+    LEVEL_MAP = {
+        "country":     {"admin_level": None, "parent_type": None},
+        "state":       {"admin_level": "4",  "parent_type": "country"},
+        "district":    {"admin_level": "6",  "parent_type": "state"},
+        "subdistrict": {"admin_level": "7",  "parent_type": "district"},
+        "mandal":      {"admin_level": "8",  "parent_type": "subdistrict"},
+        "village":     {"admin_level": "10", "parent_type": "mandal"},
+    }
+
+    try:
+        results = []
+
+        if q and parent_id:
+            # Free-text search within a parent boundary using Nominatim
+            r = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": q,
+                    "format": "json",
+                    "limit": 10,
+                    "addressdetails": 1,
+                    "extratags": 1,
+                    "bounded": 1,
+                },
+                headers={"User-Agent": "WeatherDrift/2.0"},
+                timeout=10
+            )
+            items = r.json()
+        elif parent_id:
+            # Get children of a specific OSM relation
+            # Use Nominatim search with hierarchy
+            r = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "format": "json",
+                    "limit": 50,
+                    "addressdetails": 1,
+                    "extratags": 1,
+                    "featuretype": "settlement" if level == "village" else "administrative",
+                },
+                headers={"User-Agent": "WeatherDrift/2.0"},
+                timeout=10
+            )
+            items = []  # fallback — use details approach below
+        else:
+            items = []
+
+        # Better approach: use Overpass-style via Nominatim details + search
+        if parent_id and not q:
+            # Get children using Nominatim's hierarchy endpoint
+            det = requests.get(
+                f"https://nominatim.openstreetmap.org/details",
+                params={
+                    "osmtype": "R",
+                    "osmid": parent_id,
+                    "format": "json",
+                    "addressdetails": 1,
+                    "hierarchy": 1,
+                    "group_hierarchy": 1,
+                },
+                headers={"User-Agent": "WeatherDrift/2.0"},
+                timeout=10
+            )
+            det_data = det.json()
+            linked = det_data.get("linked_places", []) + det_data.get("hierarchy", [])
+            for place in linked[:40]:
+                name = place.get("localname") or place.get("name", {}).get("name","")
+                osm_id = str(place.get("osm_id",""))
+                osm_type = place.get("osm_type","")
+                lat = float(place.get("centroid",{}).get("coordinates",[0,0])[1] or 0)
+                lon = float(place.get("centroid",{}).get("coordinates",[0,0])[0] or 0)
+                place_type = place.get("class","") + ":" + place.get("type","")
+                if name:
+                    results.append({
+                        "name": name,
+                        "osm_id": osm_id,
+                        "osm_type": osm_type,
+                        "lat": lat, "lon": lon,
+                        "place_type": place_type,
+                        "admin_level": str(place.get("admin_level","")),
+                    })
+
+        # Fallback: free-text search for the level type
+        if not results:
+            search_q = q if q else ""
+            if not search_q and parent_id:
+                # Can't do much without a query — skip
+                return jsonify({"results": [], "level": level})
+
+            r = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": search_q,
+                    "format": "json",
+                    "limit": 10,
+                    "addressdetails": 1,
+                    "extratags": 1,
+                    "namedetails": 1,
+                },
+                headers={"User-Agent": "WeatherDrift/2.0"},
+                timeout=10
+            )
+            items = r.json()
+            seen = set()
+            for item in items:
+                addr = item.get("address", {})
+                place_name = (
+                    addr.get("hamlet") or addr.get("isolated_dwelling") or
+                    addr.get("locality") or addr.get("neighbourhood") or
+                    addr.get("suburb") or addr.get("village") or
+                    addr.get("town") or addr.get("city_district") or
+                    addr.get("city") or addr.get("municipality") or
+                    addr.get("county") or item.get("name","")
+                )
+                state = addr.get("state","")
+                district = addr.get("county","") or addr.get("state_district","")
+                country_name = addr.get("country","")
+                country_code = addr.get("country_code","").upper()
+
+                context_parts = []
+                if district and district.lower() != place_name.lower(): context_parts.append(district)
+                if state and state.lower() not in (place_name.lower(), district.lower()): context_parts.append(state)
+                if country_name: context_parts.append(country_name)
+
+                osm_id = str(item.get("osm_id",""))
+                key = osm_id or f"{round(float(item['lat']),3)},{round(float(item['lon']),3)}"
+                if key in seen: continue
+                seen.add(key)
+
+                results.append({
+                    "name": place_name,
+                    "display": place_name + (", " + ", ".join(context_parts) if context_parts else ""),
+                    "osm_id": osm_id,
+                    "osm_type": item.get("osm_type",""),
+                    "lat": float(item["lat"]),
+                    "lon": float(item["lon"]),
+                    "place_type": item.get("type","place").title(),
+                    "admin_level": item.get("extratags",{}).get("admin_level",""),
+                    "country_code": country_code,
+                    "country_name": country_name,
+                    "state": state,
+                    "district": district,
+                })
+
+        return jsonify({"results": results, "level": level})
+    except Exception as e:
+        return jsonify({"error": str(e), "results": []}), 500
+
+
 def add_city():
     global _custom_cities
     data = request.get_json()
