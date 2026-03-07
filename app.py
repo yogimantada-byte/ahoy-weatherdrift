@@ -261,6 +261,8 @@ HTML_TEMPLATE = """
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WeatherDrift — Global Weather Reports</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌤️</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌤️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -270,7 +272,20 @@ HTML_TEMPLATE = """
     --muted: #8a8070;
     --card-bg: #ffffff;
     --border: #d4cec5;
+    --toolbar-bg: #1a1a22;
   }
+
+  body.dark-mode {
+    --ink: #f2ede6;
+    --paper: #0f0f14;
+    --muted: #8a8a9a;
+    --card-bg: #1a1a22;
+    --border: #2a2a35;
+    --toolbar-bg: #0a0a0f;
+  }
+  body.dark-mode header { background: #07070a; }
+  body.dark-mode .featured-card { background: #1a1a22; }
+  body.dark-mode footer { background: #07070a; }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -280,6 +295,127 @@ HTML_TEMPLATE = """
     color: var(--ink);
     min-height: 100vh;
     overflow-x: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    background: var(--toolbar-bg);
+    padding: 10px 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* Search */
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 360px;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 8px 14px 8px 36px;
+    color: #f2ede6;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    outline: none;
+    transition: border 0.2s;
+  }
+  .search-wrap input::placeholder { color: #666; }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap .search-icon {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.9rem; pointer-events: none;
+  }
+  #search-results {
+    position: absolute;
+    top: calc(100% + 4px); left: 0; right: 0;
+    background: #1a1a22;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    z-index: 200;
+    max-height: 260px;
+    overflow-y: auto;
+    display: none;
+  }
+  .search-result-item {
+    padding: 10px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: #ccc;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .search-result-item:hover { background: rgba(232,68,26,0.15); color: white; }
+  .search-result-flag { font-size: 1rem; }
+
+  /* Toggle buttons */
+  .toolbar-btn {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 7px 14px;
+    color: #ccc;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .toolbar-btn:hover, .toolbar-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Country clocks */
+  .clocks-bar {
+    background: #111118;
+    padding: 8px 40px;
+    display: flex;
+    gap: 30px;
+    overflow-x: auto;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .clocks-bar::-webkit-scrollbar { height: 3px; }
+  .clocks-bar::-webkit-scrollbar-thumb { background: var(--accent); }
+  .clock-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  .clock-flag { font-size: 1.2rem; }
+  .clock-info { display: flex; flex-direction: column; }
+  .clock-country {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: #666;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .clock-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    color: #f2ede6;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .clock-date {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--accent);
+    letter-spacing: 1px;
   }
 
   /* HEADER */
@@ -707,6 +843,34 @@ HTML_TEMPLATE = """
   .forecast-day:nth-child(6) { animation-delay: 0.3s; }
   .forecast-day:nth-child(7) { animation-delay: 0.35s; }
 
+  /* Share & Download buttons */
+  .action-bar {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-whatsapp { background: #25D366; color: white; }
+  .btn-whatsapp:hover { background: #1da851; }
+  .btn-twitter  { background: #1DA1F2; color: white; }
+  .btn-twitter:hover  { background: #0d8bd9; }
+  .btn-download { background: var(--accent); color: white; }
+  .btn-download:hover { background: #c93a15; }
+
   @media (max-width: 768px) {
     main { padding: 20px; }
     .featured-card { grid-template-columns: 1fr; padding: 30px; }
@@ -715,6 +879,8 @@ HTML_TEMPLATE = """
     .forecast-strip { grid-template-columns: repeat(4, 1fr); }
     header { padding: 0 20px; }
     .tagline { display: none; }
+    .toolbar { padding: 10px 16px; }
+    .clocks-bar { padding: 8px 16px; }
   }
 </style>
 </head>
@@ -768,7 +934,60 @@ HTML_TEMPLATE = """
   </div>
 </header>
 
-<!-- TICKER -->
+<!-- TOOLBAR: Search + Toggles -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="city-search" placeholder="Search any city..." autocomplete="off" oninput="handleSearch(this.value)">
+    <div id="search-results"></div>
+  </div>
+  <button class="toolbar-btn" id="unit-btn" onclick="toggleUnit()">°C / °F</button>
+  <button class="toolbar-btn" id="dark-btn" onclick="toggleDark()">🌙 Dark Mode</button>
+</div>
+
+<!-- COUNTRY CLOCKS -->
+<div class="clocks-bar">
+  <div class="clock-item">
+    <span class="clock-flag">🇮🇳</span>
+    <div class="clock-info">
+      <span class="clock-country">India (IST)</span>
+      <span class="clock-time" id="clock-IN">--:--:--</span>
+      <span class="clock-date" id="date-IN">---</span>
+    </div>
+  </div>
+  <div class="clock-item">
+    <span class="clock-flag">🇯🇵</span>
+    <div class="clock-info">
+      <span class="clock-country">Japan (JST)</span>
+      <span class="clock-time" id="clock-JP">--:--:--</span>
+      <span class="clock-date" id="date-JP">---</span>
+    </div>
+  </div>
+  <div class="clock-item">
+    <span class="clock-flag">🇷🇺</span>
+    <div class="clock-info">
+      <span class="clock-country">Russia (MSK)</span>
+      <span class="clock-time" id="clock-RU">--:--:--</span>
+      <span class="clock-date" id="date-RU">---</span>
+    </div>
+  </div>
+  <div class="clock-item">
+    <span class="clock-flag">🇿🇦</span>
+    <div class="clock-info">
+      <span class="clock-country">S.Africa (SAST)</span>
+      <span class="clock-time" id="clock-ZA">--:--:--</span>
+      <span class="clock-date" id="date-ZA">---</span>
+    </div>
+  </div>
+  <div class="clock-item">
+    <span class="clock-flag">🌐</span>
+    <div class="clock-info">
+      <span class="clock-country">UTC</span>
+      <span class="clock-time" id="clock-UTC">--:--:--</span>
+      <span class="clock-date" id="date-UTC">---</span>
+    </div>
+  </div>
+</div>
 <div class="ticker-wrap">
   <div class="ticker">
     {% for w in weather_data %}
@@ -816,7 +1035,12 @@ HTML_TEMPLATE = """
       </div>
       <div>
         <div class="featured-temp" id="feat-temp">{{ featured.temp }}°</div>
-        <div class="featured-unit">Celsius</div>
+        <div class="featured-unit" id="feat-unit">Celsius</div>
+        <div class="action-bar">
+          <button class="action-btn btn-whatsapp" onclick="shareWhatsApp()">💬 WhatsApp</button>
+          <button class="action-btn btn-twitter"  onclick="shareTwitter()">🐦 Share</button>
+          <button class="action-btn btn-download" onclick="downloadCard()">⬇️ Download</button>
+        </div>
       </div>
     </div>
   </section>
@@ -888,63 +1112,142 @@ HTML_TEMPLATE = """
 </footer>
 
 <script>
-// ── Track which city is currently featured ──────────────────────────────
+// ── State ────────────────────────────────────────────────────────────────
 let currentFeaturedCity = null;
+let isCelsius = true;
+let rawTemp = {};   // stores original °C values keyed by element id
+let allCities = [];  // populated from weather data for search
 
-// ── Safe value helper — never shows "undefined" ──────────────────────────
+// ── Safe value helper ────────────────────────────────────────────────────
 function safe(val, suffix = '') {
   return (val !== undefined && val !== null) ? val + suffix : '—';
 }
 
-// ── Update featured panel with city data object ─────────────────────────
-function updateFeaturedPanel(d) {
-  if (!d || d.error) return;
-  document.getElementById('feat-icon').textContent        = safe(d.icon);
-  document.getElementById('feat-city').textContent        = safe(d.city);
-  document.getElementById('feat-country').textContent     = safe(d.country) + ' · Updated just now';
-  document.getElementById('feat-condition').textContent   = safe(d.condition) + ' — Feels like ' + safe(d.feels_like, '°C');
-  document.getElementById('feat-temp').textContent        = safe(d.temp, '°');
-  document.getElementById('feat-humidity').textContent    = safe(d.humidity, '%');
-  document.getElementById('feat-wind').textContent        = safe(d.wind_speed, ' km/h');
-  document.getElementById('feat-uv').textContent          = safe(d.uv_index);
-  document.getElementById('feat-pressure').textContent    = safe(d.pressure, ' hPa');
-  document.getElementById('feat-visibility').textContent  = safe(d.visibility, ' km');
+// ── Temperature conversion ───────────────────────────────────────────────
+function toF(c) { return Math.round(c * 9/5 + 32); }
+function displayTemp(c) {
+  if (c === '—' || c === null || c === undefined) return '—';
+  return isCelsius ? c + '°' : toF(Number(c)) + '°';
+}
+function unitLabel() { return isCelsius ? 'Celsius' : 'Fahrenheit'; }
+
+function toggleUnit() {
+  isCelsius = !isCelsius;
+  document.getElementById('unit-btn').textContent = isCelsius ? '°C / °F' : '°F / °C';
+  document.getElementById('feat-unit').textContent = unitLabel();
+
+  // Update featured temp
+  const rawC = rawTemp['feat-temp'];
+  if (rawC !== undefined) document.getElementById('feat-temp').textContent = displayTemp(rawC);
+
+  // Update all city cards
+  document.querySelectorAll('.city-card').forEach(card => {
+    const rawC = parseFloat(card.dataset.tempC);
+    const tempEl = card.querySelector('.city-temp');
+    if (!isNaN(rawC) && tempEl) tempEl.textContent = displayTemp(rawC);
+  });
+
+  // Update ticker
+  if (allCities.length) updateTicker(allCities);
 }
 
-// ── Update 7-day forecast strip ─────────────────────────────────────────
+// ── Dark mode ────────────────────────────────────────────────────────────
+function toggleDark() {
+  document.body.classList.toggle('dark-mode');
+  const btn = document.getElementById('dark-btn');
+  btn.textContent = document.body.classList.contains('dark-mode') ? '☀️ Light Mode' : '🌙 Dark Mode';
+  btn.classList.toggle('active', document.body.classList.contains('dark-mode'));
+  localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+}
+if (localStorage.getItem('darkMode') === 'true') {
+  document.body.classList.add('dark-mode');
+  document.getElementById('dark-btn').textContent = '☀️ Light Mode';
+}
+
+// ── Country clocks ───────────────────────────────────────────────────────
+const TIMEZONES = {
+  IN:  'Asia/Kolkata',
+  JP:  'Asia/Tokyo',
+  RU:  'Europe/Moscow',
+  ZA:  'Africa/Johannesburg',
+  UTC: 'UTC',
+};
+function updateClocks() {
+  const now = new Date();
+  for (const [code, tz] of Object.entries(TIMEZONES)) {
+    const timeStr = now.toLocaleTimeString('en-GB', { timeZone: tz, hour12: false });
+    const dateStr = now.toLocaleDateString('en-GB', { timeZone: tz, weekday: 'short', day: '2-digit', month: 'short' });
+    const timeEl = document.getElementById('clock-' + code);
+    const dateEl = document.getElementById('date-' + code);
+    if (timeEl) timeEl.textContent = timeStr;
+    if (dateEl) dateEl.textContent = dateStr;
+  }
+}
+updateClocks();
+setInterval(updateClocks, 1000);
+
+// ── Search ───────────────────────────────────────────────────────────────
+function handleSearch(query) {
+  const box = document.getElementById('search-results');
+  if (!query.trim()) { box.style.display = 'none'; return; }
+  const q = query.toLowerCase();
+  const matches = allCities.filter(c => c.city.toLowerCase().includes(q)).slice(0, 8);
+  if (!matches.length) { box.style.display = 'none'; return; }
+  const flags = { IN:'🇮🇳', JP:'🇯🇵', RU:'🇷🇺', ZA:'🇿🇦' };
+  box.innerHTML = matches.map(c => `
+    <div class="search-result-item" onclick="selectCity('${c.city}'); document.getElementById('city-search').value=''; document.getElementById('search-results').style.display='none';">
+      <span>${c.city}</span>
+      <span class="search-result-flag">${flags[c.country] || ''} ${c.temp !== undefined ? displayTemp(c.temp) : ''}</span>
+    </div>
+  `).join('');
+  box.style.display = 'block';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) document.getElementById('search-results').style.display = 'none';
+});
+
+// ── Update featured panel ────────────────────────────────────────────────
+function updateFeaturedPanel(d) {
+  if (!d || d.error) return;
+  rawTemp['feat-temp'] = d.temp;
+  document.getElementById('feat-icon').textContent       = safe(d.icon);
+  document.getElementById('feat-city').textContent       = safe(d.city);
+  document.getElementById('feat-country').textContent    = safe(d.country) + ' · Updated just now';
+  document.getElementById('feat-condition').textContent  = safe(d.condition) + ' — Feels like ' + (isCelsius ? safe(d.feels_like,'°C') : toF(d.feels_like)+'°F');
+  document.getElementById('feat-temp').textContent       = displayTemp(d.temp);
+  document.getElementById('feat-unit').textContent       = unitLabel();
+  document.getElementById('feat-humidity').textContent   = safe(d.humidity, '%');
+  document.getElementById('feat-wind').textContent       = safe(d.wind_speed, ' km/h');
+  document.getElementById('feat-uv').textContent         = safe(d.uv_index);
+  document.getElementById('feat-pressure').textContent   = safe(d.pressure, ' hPa');
+  document.getElementById('feat-visibility').textContent = safe(d.visibility, ' km');
+}
+
+// ── Update 7-day forecast ────────────────────────────────────────────────
 function updateForecast(cityName, forecastData) {
   document.getElementById('forecast-label').textContent = '7-Day Outlook · ' + cityName;
   const strip = document.getElementById('forecast-strip');
-  strip.innerHTML = forecastData.map(day => `
+  strip.innerHTML = (forecastData || []).map(day => `
     <div class="forecast-day">
       <div class="forecast-label">${day.day}</div>
       <div class="forecast-icon">${day.icon}</div>
-      <div class="forecast-hi">${day.high}°</div>
-      <div class="forecast-lo">${day.low}° lo</div>
+      <div class="forecast-hi">${displayTemp(day.high)}</div>
+      <div class="forecast-lo">${displayTemp(day.low)} lo</div>
     </div>
   `).join('');
 }
 
-// ── Click a city card ────────────────────────────────────────────────────
+// ── Select a city card ───────────────────────────────────────────────────
 function selectCity(cityName) {
   if (!cityName) return;
   currentFeaturedCity = cityName;
-
-  // Highlight selected card, remove from others
   document.querySelectorAll('.city-card').forEach(c => c.classList.remove('selected'));
   const selected = document.querySelector(`.city-card[data-city="${cityName}"]`);
   if (selected) selected.classList.add('selected');
-
-  // Show loading indicator and scroll to featured
   document.getElementById('featured-loading').style.display = 'inline';
   document.querySelector('.featured-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  // Fetch live data for selected city (includes 7-day forecast)
   fetch(`/api/city/${encodeURIComponent(cityName)}`)
-    .then(r => {
-      if (!r.ok) throw new Error('API error: ' + r.status);
-      return r.json();
-    })
+    .then(r => { if (!r.ok) throw new Error('API error'); return r.json(); })
     .then(d => {
       if (d.error) throw new Error(d.error);
       updateFeaturedPanel(d);
@@ -952,36 +1255,34 @@ function selectCity(cityName) {
       document.getElementById('featured-loading').style.display = 'none';
     })
     .catch(err => {
-      console.error('Error fetching city data:', err);
+      console.error(err);
       document.getElementById('featured-loading').style.display = 'none';
-      // Fall back to cached card data already on the page
       const card = document.querySelector(`.city-card[data-city="${cityName}"]`);
       if (card) {
-        const fallback = {
+        updateFeaturedPanel({
           city: cityName,
           country: card.querySelector('.city-country')?.textContent || '',
           icon: card.querySelector('.city-icon')?.textContent || '🌡️',
-          temp: card.querySelector('.city-temp')?.textContent?.replace('°','') || '—',
+          temp: parseFloat(card.dataset.tempC) || '—',
           condition: card.querySelector('.city-condition')?.textContent || '—',
-          feels_like: '—', humidity: '—', wind_speed: '—',
-          uv_index: '—', pressure: '—', visibility: '—',
-        };
-        updateFeaturedPanel(fallback);
+          feels_like:'—', humidity:'—', wind_speed:'—', uv_index:'—', pressure:'—', visibility:'—',
+        });
       }
     });
 }
 
-// ── Update all city cards in the grid ───────────────────────────────────
+// ── Update all city cards ────────────────────────────────────────────────
 function updateAllCards(weatherList) {
+  allCities = weatherList;
   weatherList.forEach(w => {
     const card = document.querySelector(`.city-card[data-city="${w.city}"]`);
     if (!card) return;
-    const q    = sel => card.querySelector(sel);
+    card.dataset.tempC = w.temp;
     const stats = card.querySelectorAll('.card-stat-value');
-    const tempEl = q('.city-temp');
-    const condEl = q('.city-condition');
-    const iconEl = q('.city-icon');
-    if (tempEl)   tempEl.textContent   = w.temp + '°';
+    const tempEl = card.querySelector('.city-temp');
+    const condEl = card.querySelector('.city-condition');
+    const iconEl = card.querySelector('.city-icon');
+    if (tempEl)   tempEl.textContent   = displayTemp(w.temp);
     if (condEl)   condEl.textContent   = w.condition;
     if (iconEl)   iconEl.textContent   = w.icon;
     if (stats[0]) stats[0].textContent = w.humidity + '%';
@@ -991,47 +1292,142 @@ function updateAllCards(weatherList) {
   });
 }
 
-// ── Update scrolling ticker ──────────────────────────────────────────────
+// ── Update ticker ────────────────────────────────────────────────────────
 function updateTicker(weatherList) {
   const ticker = document.querySelector('.ticker');
   if (!ticker) return;
   const items = weatherList.map(w =>
-    `<span class="ticker-item">${w.icon} ${w.city} ${w.temp}°C · ${w.condition}</span>`
+    `<span class="ticker-item">${w.icon} ${w.city} ${displayTemp(w.temp)}·${w.condition}</span>`
   ).join('');
   ticker.innerHTML = items + items;
 }
 
-// ── Auto-refresh: poll /api/weather every 60 seconds ────────────────────
+// ── Share on WhatsApp ────────────────────────────────────────────────────
+function shareWhatsApp() {
+  const city    = document.getElementById('feat-city').textContent;
+  const temp    = document.getElementById('feat-temp').textContent;
+  const cond    = document.getElementById('feat-condition').textContent;
+  const url     = window.location.href;
+  const text    = `🌤️ Weather in ${city}: ${temp} — ${cond}\nCheck live weather: ${url}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+// ── Share on Twitter/X ───────────────────────────────────────────────────
+function shareTwitter() {
+  const city = document.getElementById('feat-city').textContent;
+  const temp = document.getElementById('feat-temp').textContent;
+  const cond = document.getElementById('feat-condition').textContent;
+  const text = `🌤️ Weather in ${city}: ${temp} — ${cond} | WeatherDrift`;
+  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(window.location.href), '_blank');
+}
+
+// ── Download weather card as image ───────────────────────────────────────
+function downloadCard() {
+  const city    = document.getElementById('feat-city').textContent;
+  const temp    = document.getElementById('feat-temp').textContent;
+  const cond    = document.getElementById('feat-condition').textContent;
+  const humidity= document.getElementById('feat-humidity').textContent;
+  const wind    = document.getElementById('feat-wind').textContent;
+  const icon    = document.getElementById('feat-icon').textContent;
+  const date    = new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+  const canvas  = document.createElement('canvas');
+  canvas.width  = 800; canvas.height = 420;
+  const ctx     = canvas.getContext('2d');
+
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, 800, 420);
+  grad.addColorStop(0, '#0a0a0f');
+  grad.addColorStop(1, '#1a1a2e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 800, 420);
+
+  // Accent bar
+  ctx.fillStyle = '#e8441a';
+  ctx.fillRect(0, 0, 6, 420);
+
+  // Icon
+  ctx.font = '80px serif';
+  ctx.fillText(icon, 60, 120);
+
+  // City name
+  ctx.fillStyle = '#f2ede6';
+  ctx.font = 'bold 56px sans-serif';
+  ctx.fillText(city, 60, 200);
+
+  // Temp
+  ctx.fillStyle = '#e8441a';
+  ctx.font = 'bold 100px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(temp, 760, 200);
+
+  // Condition
+  ctx.fillStyle = '#aaa';
+  ctx.font = '22px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(cond, 60, 250);
+
+  // Stats
+  ctx.fillStyle = '#888';
+  ctx.font = '18px monospace';
+  ctx.fillText('💧 ' + humidity + '   💨 ' + wind, 60, 300);
+
+  // Date
+  ctx.fillStyle = '#555';
+  ctx.font = '15px monospace';
+  ctx.fillText(date, 60, 360);
+
+  // Branding
+  ctx.fillStyle = '#e8441a';
+  ctx.font = 'bold 18px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('WeatherDrift', 760, 390);
+
+  // Download
+  const a = document.createElement('a');
+  a.download = `weather-${city.toLowerCase().replace(/ /g,'-')}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+// ── Auto-refresh every 60 seconds ────────────────────────────────────────
 function autoRefresh() {
   fetch('/api/weather')
     .then(r => r.json())
     .then(data => {
-      // Update all city cards and ticker
       updateAllCards(data.weather);
       updateTicker(data.weather);
-
-      // Update last-updated label in header
       const label = document.getElementById('last-updated-label');
       if (label) label.textContent = 'Last updated: ' + data.last_updated;
-
-      // If a city is selected, update featured panel with fresh data
       if (currentFeaturedCity) {
         const w = data.weather.find(x => x.city === currentFeaturedCity);
         if (w) updateFeaturedPanel(w);
-        // Also refresh the 7-day forecast for the selected city
         fetch(`/api/city/${encodeURIComponent(currentFeaturedCity)}`)
           .then(r => r.json())
           .then(d => updateForecast(d.city, d.forecast))
           .catch(() => {});
       }
-      console.log('Auto-refreshed at', data.last_updated);
     })
     .catch(err => console.error('Auto-refresh error:', err));
 }
 
-// Kick off auto-refresh every 60 seconds
+// ── Init: populate allCities from existing cards ─────────────────────────
+document.querySelectorAll('.city-card').forEach(card => {
+  const city    = card.dataset.city;
+  const tempEl  = card.querySelector('.city-temp');
+  const rawC    = tempEl ? parseFloat(tempEl.textContent) : null;
+  card.dataset.tempC = rawC;
+  if (city && rawC !== null) {
+    allCities.push({
+      city,
+      country: card.querySelector('.city-country')?.textContent || '',
+      temp: rawC,
+    });
+  }
+});
+
 setInterval(autoRefresh, 60000);
-console.log('Auto-refresh active — updates every 60 seconds');
+console.log('WeatherDrift ready ✅');
 </script>
 
 </body>
