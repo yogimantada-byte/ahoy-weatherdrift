@@ -2212,16 +2212,22 @@ console.log('WeatherDrift v2.0 ready ✅');
 @app.route("/")
 def index():
     weather = get_cached_weather()
-    # Sort by country name then city name alphabetically
-    weather_sorted = sorted(weather, key=lambda w: (
-        w.get("country_name", w.get("country","")),
-        w.get("city","")
-    ))
+
+    # Map country codes to names for consistent sorting
+    CODE_TO_NAME = {
+        "IN": "India", "JP": "Japan", "RU": "Russia", "ZA": "South Africa",
+    }
+
+    def sort_key(w):
+        code = w.get("country", "CUSTOM")
+        name = w.get("country_name") or CODE_TO_NAME.get(code, code)
+        return (name, w.get("city", ""))
+
+    weather_sorted = sorted(weather, key=sort_key)
     featured = weather_sorted[0] if weather_sorted else {}
     forecast  = get_forecast(featured.get("city","Mumbai"))
 
     # Build sorted country groups for template
-    # Each entry: (country_code, country_name, flag, [cities sorted])
     country_meta = {
         "IN":  ("India",        "🇮🇳"),
         "JP":  ("Japan",        "🇯🇵"),
@@ -2229,22 +2235,32 @@ def index():
         "ZA":  ("South Africa", "🇿🇦"),
         "CUSTOM": ("Custom",    "🌍"),
     }
-    # Gather all country codes present in data (including custom)
-    all_codes = sorted(set(w.get("country","CUSTOM") for w in weather_sorted),
-                       key=lambda c: country_meta.get(c, (c,""))[0])
+
+    def get_country_name(code, w):
+        """Resolve display name: prefer stored country_name, else country_meta, else code."""
+        return (w.get("country_name")
+                or country_meta.get(code, (code, "🌍"))[0])
+
+    # Gather all country codes present in data
+    all_codes = sorted(
+        set(w.get("country", "CUSTOM") for w in weather_sorted),
+        key=lambda c: country_meta.get(c, (c, ""))[0]
+    )
 
     country_groups = []
     for code in all_codes:
         meta = country_meta.get(code, (code, "🌍"))
         cities = sorted(
-            [w for w in weather_sorted if w.get("country","CUSTOM") == code],
-            key=lambda w: w.get("city","")
+            [w for w in weather_sorted if w.get("country", "CUSTOM") == code],
+            key=lambda w: w.get("city", "")
         )
         if cities:
+            # Use actual country_name from first city if available (for custom countries)
+            display_name = cities[0].get("country_name") or meta[0]
             country_groups.append({
-                "code":  code,
-                "name":  meta[0],
-                "flag":  meta[1],
+                "code":   code,
+                "name":   display_name,
+                "flag":   meta[1],
                 "cities": cities,
             })
 
