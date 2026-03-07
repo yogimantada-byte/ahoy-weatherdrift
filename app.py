@@ -254,7 +254,7 @@ HTML_TEMPLATE = """
 <title>WeatherDrift — Global Weather Intelligence</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌤️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous" defer></script>
 <style>
 :root {
   --ink:#0a0a0f; --paper:#f2ede6; --accent:#e8441a;
@@ -946,7 +946,7 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
   </div>
   <div class="city-grid" id="grid-{{ group.code }}">
     {% for w in group.cities %}
-    <div class="city-card" onclick="selectCity('{{ w.city }}')" data-city="{{ w.city }}" data-temp-c="{{ w.temp }}" data-country="{{ w.country }}">
+    <div class="city-card" onclick="selectCity(this.dataset.city)" data-city="{{ w.city }}" data-temp-c="{{ w.temp }}" data-country="{{ w.country }}">
       <div class="city-header">
         <div>
           <div class="city-name">{{ w.city }}</div>
@@ -1118,76 +1118,66 @@ const TZ = {IN:'Asia/Kolkata',JP:'Asia/Tokyo',RU:'Europe/Moscow',ZA:'Africa/Joha
 function updateClocks() {
   const now = new Date();
   for (const [code, tz] of Object.entries(TZ)) {
-    const t = document.getElementById('clock-'+code);
-    const d = document.getElementById('date-'+code);
-    if(t) t.textContent = now.toLocaleTimeString('en-GB',{timeZone:tz,hour12:false});
-    if(d) d.textContent = now.toLocaleDateString('en-GB',{timeZone:tz,weekday:'short',day:'2-digit',month:'short'});
+    try {
+      const t = document.getElementById('clock-'+code);
+      const d = document.getElementById('date-'+code);
+      if(t) t.textContent = now.toLocaleTimeString('en-GB',{timeZone:tz,hour12:false});
+      if(d) d.textContent = now.toLocaleDateString('en-GB',{timeZone:tz,weekday:'short',day:'2-digit',month:'short'});
+    } catch(e) {
+      const t = document.getElementById('clock-'+code);
+      const d = document.getElementById('date-'+code);
+      if(t) t.textContent = now.toTimeString().slice(0,8);
+      if(d) d.textContent = now.toDateString().slice(0,10);
+    }
   }
 }
 updateClocks(); setInterval(updateClocks, 1000);
 
-// ── Search ─────────────────────────────────────────────────────────────────
 // ── Search bar — global city search via Nominatim ─────────────────────────
 let _searchTimer  = null;
-let _searchResults = [];   // [{city, country_name, lat, lon, display}]
+let _searchResults = [];
 
 function handleSearch(q) {
   clearTimeout(_searchTimer);
   const box = document.getElementById('search-results');
-  if (!q.trim()) { box.style.display='none'; return; }
+  if (!q || !q.trim()) { box.style.display='none'; return; }
+  box.style.display='block';
 
-  // First show instant matches from already-loaded cities
-  const local = allCities.filter(c => c.city.toLowerCase().includes(q.toLowerCase())).slice(0, 4);
-  if (local.length) {
-    box.innerHTML = local.map(c=>`
-      <div class="search-result-item" onclick="selectCity('${c.city}');document.getElementById('city-search').value='';document.getElementById('search-results').style.display='none';">
-        <span>⭐ ${c.city}</span><span style="color:#aaa;font-size:.62rem;">${c.temp!==undefined?dispTemp(c.temp):''}</span>
-      </div>`).join('') +
-      `<div style="padding:6px 14px;font-family:monospace;font-size:.6rem;color:#555;border-top:1px solid rgba(255,255,255,.05);">Searching worldwide...</div>`;
-    box.style.display='block';
-  } else {
-    box.innerHTML=`<div style="padding:10px 14px;font-family:monospace;font-size:.65rem;color:#666;">Searching...</div>`;
-    box.style.display='block';
-  }
+  // Instant local matches from already-loaded cities
+  const ql = q.toLowerCase();
+  const local = allCities.filter(c => c.city && c.city.toLowerCase().includes(ql)).slice(0, 4);
+  const localHtml = () => local.map(c=>`
+    <div class="search-result-item" onclick="selectCity('${c.city.replace(/'/g,"\\'")}');document.getElementById('city-search').value='';document.getElementById('search-results').style.display='none';">
+      <span>⭐ ${c.city}</span><span style="color:#aaa;font-size:.62rem;">${c.temp!==undefined?dispTemp(c.temp):''}</span>
+    </div>`).join('');
 
-  // Then fire Nominatim after short debounce
+  box.innerHTML = (local.length ? localHtml() : '') +
+    `<div style="padding:6px 14px;font-family:monospace;font-size:.6rem;color:#555;border-top:1px solid rgba(255,255,255,.05);">🌍 Searching worldwide...</div>`;
+
   _searchTimer = setTimeout(()=>{
     fetch('/api/geocode?q='+encodeURIComponent(q))
       .then(r=>r.json())
       .then(data=>{
         _searchResults = data.results || [];
-        const localHtml = local.map(c=>`
-          <div class="search-result-item" onclick="selectCity('${c.city}');document.getElementById('city-search').value='';document.getElementById('search-results').style.display='none';">
-            <span>⭐ ${c.city}</span><span style="color:#aaa;font-size:.62rem;">${c.temp!==undefined?dispTemp(c.temp):''}</span>
-          </div>`).join('');
-
+        const sep = local.length && _searchResults.length
+          ? `<div style="padding:4px 14px;font-family:monospace;font-size:.58rem;color:#444;background:rgba(255,255,255,.03);letter-spacing:1px;">— WORLDWIDE —</div>`
+          : '';
         const globalHtml = _searchResults
           .filter(r => !local.some(l => l.city.toLowerCase()===r.name.toLowerCase()))
           .slice(0, 6)
           .map((r,i)=>{
-            const typeColor = {
-              'City':'#e8441a','Town':'#ff9800','Village':'#4caf50',
-              'Hamlet':'#66bb6a','Suburb':'#2196f3','Neighbourhood':'#9c27b0',
-              'Locality':'#00bcd4','Municipality':'#ff9800'
-            }[r.place_type] || '#888';
-            const typeLabel = r.place_type || 'Place';
+            const typeColor = {'City':'#e8441a','Town':'#ff9800','Village':'#4caf50','Hamlet':'#66bb6a','Suburb':'#2196f3'}[r.place_type]||'#888';
             return `<div class="search-result-item" onclick="searchSelectCity(${i})">
               <span>🌍 ${r.display}</span>
-              <span style="color:${typeColor};font-size:.58rem;font-weight:700;white-space:nowrap;">${typeLabel} · PREVIEW</span>
+              <span style="color:${typeColor};font-size:.58rem;font-weight:700;white-space:nowrap;">${r.place_type||'Place'} · PREVIEW</span>
             </div>`;
           }).join('');
-
-        if (!localHtml && !globalHtml) {
-          box.innerHTML=`<div style="padding:10px 14px;font-family:monospace;font-size:.65rem;color:#666;">No results found.</div>`;
-        } else {
-          const sep = localHtml && globalHtml
-            ? `<div style="padding:4px 14px;font-family:monospace;font-size:.58rem;color:#444;background:rgba(255,255,255,.03);letter-spacing:1px;">— WORLDWIDE —</div>`
-            : '';
-          box.innerHTML = localHtml + sep + globalHtml;
-        }
+        box.innerHTML = localHtml() + sep + (globalHtml || (!local.length ? '<div style="padding:10px 14px;font-family:monospace;font-size:.65rem;color:#666;">No results found.</div>' : ''));
         box.style.display='block';
       })
-      .catch(()=>{});
+      .catch(()=>{
+        if (!local.length) box.innerHTML='<div style="padding:10px 14px;font-family:monospace;font-size:.65rem;color:#f44336;">Search unavailable — try clicking a city card.</div>';
+      });
   }, 380);
 }
 
@@ -1560,8 +1550,8 @@ function renderMapDots(weatherList) {
       const px = (x/1010)*svgRect.width  + svgRect.left;
       const py = (y/506) *svgRect.height + svgRect.top;
       tt.innerHTML = `<div class="map-tooltip-city">${w.icon||'🌡️'} ${w.city}</div>
-        <div>🌡 ${dispTemp(w.temp)} &nbsp; 💧${w.humidity||'—'}%</div>
-        <div>💨 ${w.wind_speed||'—'} km/h &nbsp; UV ${w.uv_index||'—'}</div>
+        <div>🌡 ${dispTemp(w.temp)} \u00a0 💧${w.humidity||'—'}%</div>
+        <div>💨 ${w.wind_speed||'—'} km/h \u00a0 UV ${w.uv_index||'—'}</div>
         <div style="color:${w.aqi_color||'#0c8'};margin-top:2px;">AQI ${w.aqi||'—'} · ${w.aqi_label||'—'}</div>`;
       const mapRect = document.getElementById('map-wrap').getBoundingClientRect();
       tt.style.left = (px - mapRect.left + 14) + 'px';
@@ -2166,8 +2156,18 @@ document.querySelectorAll('.city-card').forEach(card=>{
   const stats = card.querySelectorAll('.card-stat-value');
   const humidity  = parseFloat(stats[0]?.textContent) || 65;
   const wind      = parseFloat(stats[1]?.textContent) || 12;
+  const icon      = card.querySelector('.city-icon')?.textContent || '🌡️';
+  const condition = card.querySelector('.city-condition')?.textContent || '';
   if (city && !isNaN(rawC)) {
-    allCities.push({city, country:card.querySelector('.city-country')?.textContent||'', temp:rawC});
+    allCities.push({
+      city,
+      country: card.dataset.country || '',
+      temp: rawC,
+      icon,
+      condition,
+      humidity,
+      wind_speed: wind,
+    });
     // Seed initial history point so chart isn't empty
     if (!histData[city]) histData[city] = [];
     histData[city].push({
