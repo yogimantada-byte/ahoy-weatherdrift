@@ -720,6 +720,39 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
+<div id="page-loader" style="
+  position:fixed; inset:0; background:#0a0a0f;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:9999; transition: opacity 0.5s ease;">
+  <div style="font-family:'Bebas Neue',sans-serif; font-size:3rem; color:#f2ede6; letter-spacing:4px;">
+    Weather<span style="color:#e8441a">Drift</span>
+  </div>
+  <div style="font-family:monospace; font-size:0.8rem; color:#8a8070; margin-top:16px; letter-spacing:2px;">
+    FETCHING LIVE WEATHER DATA...
+  </div>
+  <div style="margin-top:24px; width:200px; height:3px; background:#1a1a1f; border-radius:2px; overflow:hidden;">
+    <div style="height:100%; background:#e8441a; border-radius:2px; animation:load-bar 2s ease-in-out infinite;"></div>
+  </div>
+  <style>
+    @keyframes load-bar {
+      0% { width:0%; margin-left:0; }
+      50% { width:60%; margin-left:20%; }
+      100% { width:0%; margin-left:100%; }
+    }
+  </style>
+</div>
+
+<script>
+  // Hide loader once page is fully ready
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const loader = document.getElementById('page-loader');
+      if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 500); }
+    }, 800);
+  });
+</script>
+
 <header>
   <div class="logo-block">
     <div>
@@ -858,18 +891,24 @@ HTML_TEMPLATE = """
 // ── Track which city is currently featured ──────────────────────────────
 let currentFeaturedCity = null;
 
+// ── Safe value helper — never shows "undefined" ──────────────────────────
+function safe(val, suffix = '') {
+  return (val !== undefined && val !== null) ? val + suffix : '—';
+}
+
 // ── Update featured panel with city data object ─────────────────────────
 function updateFeaturedPanel(d) {
-  document.getElementById('feat-icon').textContent        = d.icon;
-  document.getElementById('feat-city').textContent        = d.city;
-  document.getElementById('feat-country').textContent     = d.country + ' · Updated just now';
-  document.getElementById('feat-condition').textContent   = d.condition + ' — Feels like ' + d.feels_like + '°C';
-  document.getElementById('feat-temp').textContent        = d.temp + '°';
-  document.getElementById('feat-humidity').textContent    = d.humidity + '%';
-  document.getElementById('feat-wind').textContent        = d.wind_speed + ' km/h';
-  document.getElementById('feat-uv').textContent          = d.uv_index;
-  document.getElementById('feat-pressure').textContent    = d.pressure + ' hPa';
-  document.getElementById('feat-visibility').textContent  = d.visibility + ' km';
+  if (!d || d.error) return;
+  document.getElementById('feat-icon').textContent        = safe(d.icon);
+  document.getElementById('feat-city').textContent        = safe(d.city);
+  document.getElementById('feat-country').textContent     = safe(d.country) + ' · Updated just now';
+  document.getElementById('feat-condition').textContent   = safe(d.condition) + ' — Feels like ' + safe(d.feels_like, '°C');
+  document.getElementById('feat-temp').textContent        = safe(d.temp, '°');
+  document.getElementById('feat-humidity').textContent    = safe(d.humidity, '%');
+  document.getElementById('feat-wind').textContent        = safe(d.wind_speed, ' km/h');
+  document.getElementById('feat-uv').textContent          = safe(d.uv_index);
+  document.getElementById('feat-pressure').textContent    = safe(d.pressure, ' hPa');
+  document.getElementById('feat-visibility').textContent  = safe(d.visibility, ' km');
 }
 
 // ── Update 7-day forecast strip ─────────────────────────────────────────
@@ -888,7 +927,7 @@ function updateForecast(cityName, forecastData) {
 
 // ── Click a city card ────────────────────────────────────────────────────
 function selectCity(cityName) {
-  // Track selected city
+  if (!cityName) return;
   currentFeaturedCity = cityName;
 
   // Highlight selected card, remove from others
@@ -902,15 +941,33 @@ function selectCity(cityName) {
 
   // Fetch live data for selected city (includes 7-day forecast)
   fetch(`/api/city/${encodeURIComponent(cityName)}`)
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error('API error: ' + r.status);
+      return r.json();
+    })
     .then(d => {
+      if (d.error) throw new Error(d.error);
       updateFeaturedPanel(d);
-      updateForecast(d.city, d.forecast);
+      updateForecast(d.city, d.forecast || []);
       document.getElementById('featured-loading').style.display = 'none';
     })
     .catch(err => {
       console.error('Error fetching city data:', err);
       document.getElementById('featured-loading').style.display = 'none';
+      // Fall back to cached card data already on the page
+      const card = document.querySelector(`.city-card[data-city="${cityName}"]`);
+      if (card) {
+        const fallback = {
+          city: cityName,
+          country: card.querySelector('.city-country')?.textContent || '',
+          icon: card.querySelector('.city-icon')?.textContent || '🌡️',
+          temp: card.querySelector('.city-temp')?.textContent?.replace('°','') || '—',
+          condition: card.querySelector('.city-condition')?.textContent || '—',
+          feels_like: '—', humidity: '—', wind_speed: '—',
+          uv_index: '—', pressure: '—', visibility: '—',
+        };
+        updateFeaturedPanel(fallback);
+      }
     });
 }
 
@@ -1031,6 +1088,11 @@ def city_api(city_name):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/health")
+def health():
+    """Railway health check endpoint."""
+    return jsonify({"status": "ok", "cities": len(CITIES)}), 200
+
 @app.route("/api/weather")
 def weather_api():
     """Returns all cached weather data as JSON for frontend polling."""
@@ -1058,7 +1120,9 @@ def index():
     )
 
 if __name__ == "__main__":
+    import os
     import socket
+    port = int(os.environ.get("PORT", 5000))
     try:
         hostname = socket.gethostname()
         local_ip = socket.gethostbyname(hostname)
@@ -1067,10 +1131,10 @@ if __name__ == "__main__":
     print("\n" + "="*55)
     print("  🌍  WeatherDrift is running!")
     print("="*55)
-    print(f"  Local  (this PC):  http://localhost:5000")
-    print(f"  Network (all devices):  http://{local_ip}:5000")
+    print(f"  Local  (this PC):      http://localhost:{port}")
+    print(f"  Network (all devices): http://{local_ip}:{port}")
     print("="*55)
-    print("  📱 Open the Network URL on any phone, tablet,")
-    print("     smart TV, or laptop on the same Wi-Fi!")
+    print("  📱 Share the Network URL on same Wi-Fi")
+    print("  🌐 Or deploy to Railway for global access!")
     print("="*55 + "\n")
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=port)
