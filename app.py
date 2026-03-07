@@ -432,17 +432,41 @@ body.dark .card-stat-value{color:#e0ddd8;}
 
 /* ── HISTORY CHART ── */
 .history-section{margin-bottom:60px;}
-.chart-wrap{background:var(--card-bg);border:2px solid var(--border);padding:30px;position:relative;height:220px;}
-.chart-canvas{width:100%;height:100%;}
-body.dark .chart-wrap{background:#1e1e2a;}
+.chart-outer{background:var(--card-bg);border:2px solid var(--border);padding:0;position:relative;}
+body.dark .chart-outer{background:#1a1a24;}
+.chart-toolbar{display:flex;align-items:center;justify-content:space-between;padding:16px 24px 0;flex-wrap:wrap;gap:8px;}
+.chart-title{font-family:'Space Mono',monospace;font-size:.7rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.chart-tabs{display:flex;gap:4px;}
+.chart-tab{font-family:'Space Mono',monospace;font-size:.6rem;padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;border-radius:3px;transition:all .2s;letter-spacing:1px;}
+.chart-tab.active,.chart-tab:hover{background:var(--accent);color:white;border-color:var(--accent);}
+.chart-stats-row{display:flex;gap:30px;padding:12px 24px;border-bottom:1px solid var(--border);}
+.chart-stat{display:flex;flex-direction:column;gap:2px;}
+.chart-stat-label{font-family:'Space Mono',monospace;font-size:.55rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.chart-stat-value{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--accent);letter-spacing:1px;}
+.chart-canvas-wrap{padding:20px 24px 24px;height:260px;position:relative;}
+#history-chart{width:100%;height:100%;display:block;}
+.chart-legend{display:flex;gap:16px;padding:0 24px 16px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);}
+.legend-dot{width:8px;height:8px;border-radius:50%;}
 
 /* ── WORLD MAP ── */
 .map-section{margin-bottom:60px;}
-.map-wrap{background:#0a0a0f;border:2px solid var(--border);overflow:hidden;position:relative;height:400px;}
-#world-map{width:100%;height:100%;}
-.map-dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%);cursor:pointer;transition:transform .2s;}
-.map-dot:hover{transform:translate(-50%,-50%) scale(2);}
-.map-tooltip{position:absolute;background:#0a0a0f;border:1px solid var(--accent);color:#f2ede6;padding:8px 12px;font-family:'Space Mono',monospace;font-size:.65rem;border-radius:4px;pointer-events:none;display:none;z-index:50;white-space:nowrap;}
+.map-outer{background:#050d1a;border:2px solid var(--border);overflow:hidden;position:relative;}
+.map-toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(0,0,0,.4);border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap;gap:8px;}
+.map-legend{display:flex;gap:14px;align-items:center;}
+.map-legend-item{display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:.58rem;color:#aaa;letter-spacing:.5px;}
+.map-legend-dot{width:10px;height:10px;border-radius:50%;}
+.map-wrap{position:relative;height:480px;overflow:hidden;}
+#world-svg{width:100%;height:100%;}
+.map-city-dot{cursor:pointer;transition:r .2s,opacity .2s;}
+.map-city-dot:hover{opacity:.8;}
+.map-city-label{font-family:'Space Mono',monospace;font-size:9px;fill:#f2ede6;pointer-events:none;opacity:0;transition:opacity .2s;}
+.map-city-group:hover .map-city-label{opacity:1;}
+.map-tooltip{position:absolute;background:rgba(5,13,26,.95);border:1px solid var(--accent);color:#f2ede6;padding:10px 14px;font-family:'Space Mono',monospace;font-size:.65rem;border-radius:4px;pointer-events:none;display:none;z-index:50;white-space:nowrap;line-height:1.8;min-width:160px;}
+.map-tooltip-city{font-size:.8rem;font-weight:700;color:var(--accent);margin-bottom:4px;}
+.map-zoom-btns{display:flex;gap:6px;}
+.map-zoom-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#f2ede6;width:30px;height:30px;cursor:pointer;font-size:1rem;border-radius:4px;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.map-zoom-btn:hover{background:var(--accent);}
 
 /* ── ADD CITY ── */
 .add-city-section{margin-bottom:60px;}
@@ -662,8 +686,29 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
 <!-- HISTORY CHART -->
 <section class="history-section">
   <div class="section-label">📈 Temperature History — <span id="history-city-label">{{ featured.city }}</span></div>
-  <div class="chart-wrap">
-    <canvas id="history-chart" class="chart-canvas"></canvas>
+  <div class="chart-outer">
+    <div class="chart-toolbar">
+      <div class="chart-title">Live Temperature Trend</div>
+      <div class="chart-tabs">
+        <button class="chart-tab active" onclick="setChartMode('temp',this)">🌡 Temp</button>
+        <button class="chart-tab" onclick="setChartMode('humidity',this)">💧 Humidity</button>
+        <button class="chart-tab" onclick="setChartMode('wind',this)">💨 Wind</button>
+      </div>
+    </div>
+    <div class="chart-stats-row">
+      <div class="chart-stat"><div class="chart-stat-label">Current</div><div class="chart-stat-value" id="cs-current">--°</div></div>
+      <div class="chart-stat"><div class="chart-stat-label">High</div><div class="chart-stat-value" id="cs-high" style="color:#f44336;">--°</div></div>
+      <div class="chart-stat"><div class="chart-stat-label">Low</div><div class="chart-stat-value" id="cs-low" style="color:#2196f3;">--°</div></div>
+      <div class="chart-stat"><div class="chart-stat-label">Average</div><div class="chart-stat-value" id="cs-avg" style="color:#aaa;">--°</div></div>
+    </div>
+    <div class="chart-canvas-wrap">
+      <canvas id="history-chart"></canvas>
+    </div>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e8441a;"></div>Temperature</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f44336;"></div>High</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2196f3;"></div>Low</div>
+    </div>
   </div>
 </section>
 
@@ -686,35 +731,206 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
 <!-- WORLD MAP -->
 <section class="map-section">
   <div class="section-label">🗺️ World Weather Map</div>
-  <div class="map-wrap" id="map-wrap">
-    <svg id="world-map" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
-      <!-- Simplified world map paths -->
-      <rect width="1000" height="500" fill="#0d1117"/>
-      <!-- Ocean grid -->
-      <line x1="0" y1="250" x2="1000" y2="250" stroke="#1a2030" stroke-width="1"/>
-      <line x1="500" y1="0" x2="500" y2="500" stroke="#1a2030" stroke-width="1"/>
-      <!-- Continents (simplified) -->
-      <!-- Asia -->
-      <path d="M550 80 L750 60 L850 120 L900 200 L820 280 L700 300 L620 260 L560 200 Z" fill="#1a2540" stroke="#2a3550" stroke-width="1"/>
-      <!-- India -->
-      <path d="M620 200 L680 200 L700 280 L650 300 L620 260 Z" fill="#1e3060" stroke="#2a4070" stroke-width="1"/>
-      <!-- Europe -->
-      <path d="M450 80 L550 80 L560 160 L480 180 L440 140 Z" fill="#1a2540" stroke="#2a3550" stroke-width="1"/>
-      <!-- Africa -->
-      <path d="M460 200 L560 200 L560 380 L500 400 L440 360 L440 240 Z" fill="#1a2540" stroke="#2a3550" stroke-width="1"/>
-      <!-- Russia -->
-      <path d="M500 60 L850 40 L860 120 L750 120 L550 120 Z" fill="#1a2540" stroke="#2a3550" stroke-width="1"/>
-      <!-- South Africa -->
-      <path d="M480 340 L540 340 L540 400 L510 420 L480 400 Z" fill="#1e3060" stroke="#2a4070" stroke-width="1"/>
-      <!-- Americas -->
-      <path d="M100 80 L250 80 L280 200 L260 320 L220 380 L160 360 L120 280 L80 200 Z" fill="#1a2540" stroke="#2a3550" stroke-width="1"/>
-      <!-- Japan -->
-      <path d="M820 140 L840 120 L860 160 L840 200 L820 180 Z" fill="#1e3060" stroke="#2a4070" stroke-width="1"/>
-      <!-- Australia -->
-      <path d="M760 300 L880 280 L900 380 L820 400 L760 360 Z" fill="#1a2540" stroke="#2a3550" stroke-width="1"/>
-    </svg>
-    <div id="map-dots"></div>
-    <div class="map-tooltip" id="map-tooltip"></div>
+  <div class="map-outer">
+    <div class="map-toolbar">
+      <div class="map-legend">
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#f44336;"></div>&gt;35°C</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#ff9800;"></div>26–35°C</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#4caf50;"></div>16–25°C</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#2196f3;"></div>6–15°C</div>
+        <div class="map-legend-item"><div class="map-legend-dot" style="background:#9c27b0;"></div>&lt;6°C</div>
+      </div>
+      <div class="map-zoom-btns">
+        <button class="map-zoom-btn" onclick="mapZoom(1.3)" title="Zoom in">+</button>
+        <button class="map-zoom-btn" onclick="mapZoom(0.77)" title="Zoom out">−</button>
+        <button class="map-zoom-btn" onclick="mapReset()" title="Reset">⌂</button>
+      </div>
+    </div>
+    <div class="map-wrap" id="map-wrap">
+      <svg id="world-svg" viewBox="0 0 1010 506" preserveAspectRatio="xMidYMid meet" style="cursor:grab;">
+        <defs>
+          <radialGradient id="ocean-grad" cx="50%" cy="50%" r="80%">
+            <stop offset="0%" stop-color="#0d2137"/>
+            <stop offset="100%" stop-color="#050d1a"/>
+          </radialGradient>
+          <filter id="land-shadow">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="rgba(0,0,0,.4)"/>
+          </filter>
+        </defs>
+        <!-- Ocean background -->
+        <rect width="1010" height="506" fill="url(#ocean-grad)"/>
+        <!-- Graticule (lat/lon grid) -->
+        <g stroke="#0e2a42" stroke-width="0.4" fill="none" opacity="0.6">
+          <!-- Longitude lines every 30° -->
+          <line x1="84" y1="0" x2="84" y2="506"/>
+          <line x1="168" y1="0" x2="168" y2="506"/>
+          <line x1="252" y1="0" x2="252" y2="506"/>
+          <line x1="336" y1="0" x2="336" y2="506"/>
+          <line x1="420" y1="0" x2="420" y2="506"/>
+          <line x1="505" y1="0" x2="505" y2="506"/>
+          <line x1="589" y1="0" x2="589" y2="506"/>
+          <line x1="673" y1="0" x2="673" y2="506"/>
+          <line x1="757" y1="0" x2="757" y2="506"/>
+          <line x1="841" y1="0" x2="841" y2="506"/>
+          <line x1="925" y1="0" x2="925" y2="506"/>
+          <!-- Latitude lines every 30° -->
+          <line x1="0" y1="57" x2="1010" y2="57"/>
+          <line x1="0" y1="148" x2="1010" y2="148"/>
+          <line x1="0" y1="253" x2="1010" y2="253"/>
+          <line x1="0" y1="358" x2="1010" y2="358"/>
+          <line x1="0" y1="449" x2="1010" y2="449"/>
+          <!-- Equator highlight -->
+          <line x1="0" y1="253" x2="1010" y2="253" stroke="#1a3a55" stroke-width="1"/>
+        </g>
+        <!-- Lat labels -->
+        <g fill="#1e4060" font-family="monospace" font-size="8">
+          <text x="3" y="59">60°N</text>
+          <text x="3" y="150">30°N</text>
+          <text x="3" y="248">EQ</text>
+          <text x="3" y="360">30°S</text>
+          <text x="3" y="451">60°S</text>
+        </g>
+
+        <!-- ═══ CONTINENTS (accurate simplified paths) ═══ -->
+        <g fill="#162035" stroke="#1e3050" stroke-width="0.8" filter="url(#land-shadow)">
+
+        <!-- NORTH AMERICA -->
+        <path d="M 90 57 L 140 52 L 170 58 L 185 50 L 200 55 L 215 48 L 240 55 L 255 70
+                 L 260 90 L 270 105 L 265 125 L 255 140 L 240 150 L 230 165 L 220 185
+                 L 215 205 L 205 220 L 195 235 L 190 250 L 180 255 L 165 248 L 155 235
+                 L 145 220 L 140 200 L 135 185 L 125 170 L 115 155 L 105 140 L 95 125
+                 L 85 110 L 80 90 L 83 70 Z"/>
+
+        <!-- GREENLAND -->
+        <path d="M 210 25 L 250 20 L 275 28 L 280 45 L 265 58 L 245 62 L 225 55 L 210 42 Z"/>
+
+        <!-- CENTRAL AMERICA -->
+        <path d="M 180 255 L 190 250 L 195 260 L 192 270 L 185 278 L 178 272 L 175 262 Z"/>
+
+        <!-- SOUTH AMERICA -->
+        <path d="M 195 275 L 215 270 L 240 275 L 260 285 L 275 300 L 285 320 L 290 345
+                 L 288 370 L 280 395 L 268 415 L 252 428 L 238 435 L 225 432 L 212 422
+                 L 200 408 L 190 390 L 183 368 L 180 345 L 180 318 L 183 295 L 190 280 Z"/>
+
+        <!-- EUROPE -->
+        <path d="M 440 80 L 460 72 L 480 68 L 500 72 L 515 80 L 525 92 L 520 105
+                 L 510 115 L 498 120 L 488 128 L 478 135 L 465 138 L 452 132 L 445 122
+                 L 440 110 L 438 95 Z"/>
+        <!-- Iberian peninsula -->
+        <path d="M 440 125 L 455 120 L 468 128 L 465 145 L 452 152 L 438 148 L 433 138 Z"/>
+        <!-- Scandinavia -->
+        <path d="M 475 58 L 490 52 L 505 55 L 510 68 L 505 80 L 490 85 L 478 80 L 472 68 Z"/>
+        <!-- UK -->
+        <path d="M 450 90 L 460 85 L 468 92 L 465 105 L 455 108 L 447 102 Z"/>
+        <!-- Italy -->
+        <path d="M 490 128 L 500 122 L 510 130 L 508 148 L 498 158 L 490 152 L 487 140 Z"/>
+
+        <!-- AFRICA -->
+        <path d="M 455 155 L 478 148 L 500 150 L 520 155 L 538 165 L 548 180 L 552 200
+                 L 550 225 L 545 250 L 542 275 L 538 300 L 530 325 L 518 348 L 502 365
+                 L 485 375 L 468 372 L 452 360 L 440 342 L 432 318 L 428 292 L 428 265
+                 L 430 240 L 433 215 L 438 190 L 445 172 Z"/>
+        <!-- Madagascar -->
+        <path d="M 560 295 L 568 288 L 575 298 L 572 318 L 562 325 L 555 315 L 556 302 Z"/>
+
+        <!-- RUSSIA (spans huge area) -->
+        <path d="M 505 58 L 560 50 L 630 45 L 700 42 L 770 45 L 840 50 L 900 58 L 930 72
+                 L 940 88 L 935 105 L 920 115 L 900 120 L 875 118 L 850 122 L 825 128
+                 L 800 130 L 775 128 L 750 125 L 720 120 L 695 118 L 670 120 L 645 125
+                 L 620 128 L 595 130 L 570 128 L 550 122 L 530 115 L 518 105 L 512 92 Z"/>
+
+        <!-- MIDDLE EAST / ARABIAN PENINSULA -->
+        <path d="M 548 155 L 568 148 L 590 150 L 610 158 L 622 175 L 618 195 L 605 208
+                 L 588 215 L 570 210 L 555 198 L 548 180 Z"/>
+
+        <!-- SOUTH ASIA (India prominent) -->
+        <path d="M 608 155 L 640 148 L 670 150 L 695 158 L 710 172 L 715 192 L 712 210
+                 L 700 225 L 685 232 L 668 230 L 652 220 L 638 205 L 628 188 L 620 172 Z"/>
+        <!-- India peninsula -->
+        <path d="M 638 205 L 660 200 L 678 210 L 680 232 L 672 250 L 658 258 L 645 250
+                 L 636 235 Z"/>
+        <!-- Sri Lanka -->
+        <path d="M 665 258 L 672 255 L 676 264 L 670 270 L 663 265 Z"/>
+
+        <!-- SOUTHEAST ASIA -->
+        <path d="M 712 168 L 740 162 L 762 168 L 775 182 L 770 198 L 755 208 L 738 210
+                 L 722 202 L 714 188 Z"/>
+        <!-- Indochina -->
+        <path d="M 740 180 L 760 175 L 775 185 L 778 205 L 768 225 L 750 232 L 735 225
+                 L 728 208 L 730 192 Z"/>
+        <!-- Malay peninsula -->
+        <path d="M 748 232 L 758 228 L 765 240 L 760 258 L 750 262 L 742 252 L 742 240 Z"/>
+
+        <!-- CHINA / EAST ASIA -->
+        <path d="M 670 120 L 730 115 L 780 118 L 810 128 L 825 145 L 822 165 L 808 178
+                 L 790 182 L 768 178 L 745 165 L 722 155 L 700 148 L 682 138 L 670 128 Z"/>
+
+        <!-- JAPAN -->
+        <path d="M 842 130 L 855 125 L 865 132 L 868 148 L 858 160 L 845 158 L 838 145 Z"/>
+        <!-- Kyushu/Honshu chain -->
+        <path d="M 850 148 L 862 142 L 872 150 L 870 165 L 858 170 L 848 162 Z"/>
+
+        <!-- KOREA -->
+        <path d="M 812 138 L 825 133 L 835 140 L 833 155 L 822 162 L 812 155 Z"/>
+
+        <!-- INDONESIA (scattered islands) -->
+        <path d="M 755 265 L 785 260 L 810 265 L 820 278 L 808 290 L 785 292 L 762 285 Z"/>
+        <path d="M 820 268 L 848 262 L 862 272 L 858 288 L 840 295 L 822 288 Z"/>
+        <path d="M 862 272 L 885 268 L 900 278 L 895 292 L 875 298 L 860 290 Z"/>
+
+        <!-- AUSTRALIA -->
+        <path d="M 760 320 L 820 308 L 875 312 L 918 328 L 938 350 L 940 378 L 928 402
+                 L 908 418 L 880 425 L 848 422 L 818 412 L 792 395 L 772 372 L 758 348
+                 L 752 325 Z"/>
+        <!-- Tasmania -->
+        <path d="M 880 432 L 892 428 L 898 440 L 890 448 L 878 444 Z"/>
+        <!-- New Zealand (North) -->
+        <path d="M 945 378 L 958 372 L 965 382 L 960 398 L 948 402 L 942 392 Z"/>
+        <!-- New Zealand (South) -->
+        <path d="M 940 402 L 952 398 L 960 410 L 955 428 L 942 432 L 935 420 Z"/>
+
+        <!-- CENTRAL ASIA -->
+        <path d="M 548 128 L 600 120 L 640 118 L 670 122 L 680 138 L 668 150 L 640 155
+                 L 608 155 L 580 150 L 558 142 Z"/>
+
+        <!-- ALASKA -->
+        <path d="M 50 55 L 85 50 L 95 60 L 88 75 L 72 80 L 55 75 L 46 65 Z"/>
+
+        <!-- ICELAND -->
+        <path d="M 390 65 L 410 60 L 420 70 L 415 82 L 400 88 L 388 80 Z"/>
+
+        <!-- CAUCASUS / TURKEY -->
+        <path d="M 520 128 L 548 122 L 562 130 L 560 145 L 545 152 L 525 148 L 515 138 Z"/>
+
+        </g>
+
+        <!-- Highlighted countries for our cities -->
+        <g opacity="0.15">
+          <!-- India highlight -->
+          <path d="M 638 205 L 660 200 L 678 210 L 680 232 L 672 250 L 658 258 L 645 250 L 636 235 Z
+                   M 608 155 L 640 148 L 670 150 L 695 158 L 710 172 L 715 192 L 712 210
+                   L 700 225 L 685 232 L 668 230 L 652 220 L 638 205 L 628 188 L 620 172 Z"
+                fill="#ff9800"/>
+          <!-- Japan highlight -->
+          <path d="M 842 130 L 855 125 L 865 132 L 868 148 L 858 160 L 845 158 L 838 145 Z
+                   M 850 148 L 862 142 L 872 150 L 870 165 L 858 170 L 848 162 Z"
+                fill="#e91e63"/>
+          <!-- Russia highlight -->
+          <path d="M 505 58 L 560 50 L 630 45 L 700 42 L 770 45 L 840 50 L 900 58 L 930 72
+                   L 940 88 L 935 105 L 920 115 L 900 120 L 875 118 L 850 122 L 825 128
+                   L 800 130 L 775 128 L 750 125 L 720 120 L 695 118 L 670 120 L 645 125
+                   L 620 128 L 595 130 L 570 128 L 550 122 L 530 115 L 518 105 L 512 92 Z"
+                fill="#2196f3"/>
+          <!-- South Africa highlight -->
+          <path d="M 455 338 L 502 328 L 538 340 L 540 360 L 518 378 L 490 382 L 462 372 L 448 355 Z"
+                fill="#4caf50"/>
+        </g>
+
+        <!-- City dots will be injected here by JS -->
+        <g id="map-city-dots"></g>
+      </svg>
+      <div class="map-tooltip" id="map-tooltip"></div>
+    </div>
   </div>
 </section>
 
@@ -959,7 +1175,7 @@ function updateFeaturedPanel(d) {
   // Animated background
   setWeatherBg(d.condition);
   // History chart
-  updateHistoryChart(d.city, d.temp);
+  updateHistoryChart(d.city, d);
   if (typeof twemoji !== 'undefined') twemoji.parse(document.getElementById('featured-card'));
 }
 
@@ -994,100 +1210,264 @@ function toggleNotifications() {
   }
 }
 
-// ── History chart (simple canvas) ─────────────────────────────────────────
-const histChart = {};
-function updateHistoryChart(city, temp) {
-  if (!histChart[city]) histChart[city] = [];
-  histChart[city].push({t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}), v: temp});
-  if (histChart[city].length > 12) histChart[city].shift();
-  document.getElementById('history-city-label').textContent = city;
-  drawChart(histChart[city]);
+// ── History Chart ──────────────────────────────────────────────────────────
+const histData = {};   // city -> [{t, temp, humidity, wind}]
+let chartMode = 'temp';
+
+function setChartMode(mode, btn) {
+  chartMode = mode;
+  document.querySelectorAll('.chart-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (histData[currentCity||'']) drawChart(histData[currentCity]);
 }
+
+function updateHistoryChart(city, weatherObj) {
+  if (!histData[city]) histData[city] = [];
+  histData[city].push({
+    t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+    temp: weatherObj.temp ?? weatherObj,
+    humidity: weatherObj.humidity ?? 65,
+    wind: weatherObj.wind_speed ?? 12,
+  });
+  if (histData[city].length > 20) histData[city].shift();
+  document.getElementById('history-city-label').textContent = city;
+  drawChart(histData[city]);
+}
+
 function drawChart(points) {
   const canvas = document.getElementById('history-chart');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width  = rect.width  * dpr;
+  canvas.height = rect.height * dpr;
   const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  if (points.length < 2) {
-    ctx.fillStyle = document.body.classList.contains('dark') ? '#aaa' : '#888';
-    ctx.font = '14px monospace';
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const isDark = document.body.classList.contains('dark');
+  const PAD = {t:20, r:20, b:40, l:52};
+  const cW = W - PAD.l - PAD.r;
+  const cH = H - PAD.t - PAD.b;
+
+  // Clear
+  ctx.clearRect(0,0,W,H);
+
+  if (!points || points.length < 1) {
+    ctx.fillStyle = isDark ? '#555' : '#aaa';
+    ctx.font = '13px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('Collecting temperature history...', canvas.width/2, canvas.height/2);
+    ctx.fillText('Click a city to begin tracking', W/2, H/2);
     return;
   }
-  const pad = {t:20,r:20,b:40,l:50};
-  const w = canvas.width - pad.l - pad.r;
-  const h = canvas.height - pad.t - pad.b;
-  const vals = points.map(p=>p.v);
-  const minV = Math.min(...vals) - 2;
-  const maxV = Math.max(...vals) + 2;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // Grid
-  ctx.strokeStyle = document.body.classList.contains('dark') ? '#2a2a35' : '#eee';
+
+  const vals = points.map(p => chartMode==='temp' ? p.temp : chartMode==='humidity' ? p.humidity : p.wind);
+  const minV = Math.min(...vals);
+  const maxV = Math.max(...vals);
+  const range = maxV - minV || 4;
+  const padV  = range * 0.2;
+  const yMin  = minV - padV;
+  const yMax  = maxV + padV;
+
+  // Update stats
+  const cur  = vals[vals.length-1];
+  const hi   = Math.max(...vals);
+  const lo   = Math.min(...vals);
+  const avg  = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+  const sfx  = chartMode==='temp' ? '°' : chartMode==='humidity' ? '%' : ' km/h';
+  document.getElementById('cs-current').textContent = cur + sfx;
+  document.getElementById('cs-high').textContent    = hi  + sfx;
+  document.getElementById('cs-low').textContent     = lo  + sfx;
+  document.getElementById('cs-avg').textContent     = avg + sfx;
+
+  const toX = i => PAD.l + (i / Math.max(points.length-1,1)) * cW;
+  const toY = v => PAD.t + cH - ((v - yMin)/(yMax - yMin)) * cH;
+
+  // Grid lines
+  const gridLines = 5;
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
   ctx.lineWidth = 1;
-  for (let i=0;i<=4;i++) {
-    const y = pad.t + h - (i/4)*h;
-    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
-    ctx.fillStyle = document.body.classList.contains('dark') ? '#888' : '#999';
-    ctx.font = '10px monospace'; ctx.textAlign = 'right';
-    ctx.fillText(Math.round(minV+(maxV-minV)*i/4)+'°', pad.l-6, y+4);
+  for (let i=0;i<=gridLines;i++) {
+    const y = PAD.t + (i/gridLines)*cH;
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l+cW, y); ctx.stroke();
+    const labelV = yMax - (yMax-yMin)*(i/gridLines);
+    ctx.fillStyle = isDark ? '#666' : '#aaa';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(labelV)+sfx, PAD.l-6, y+4);
   }
-  // Line
-  const xStep = w/(points.length-1);
-  const yScale = h/(maxV-minV);
+
+  // Area fill gradient
+  const lineColor = chartMode==='temp' ? '#e8441a' : chartMode==='humidity' ? '#4fc3f7' : '#66bb6a';
+  const grad = ctx.createLinearGradient(0, PAD.t, 0, PAD.t+cH);
+  grad.addColorStop(0, lineColor.replace('#','rgba(')+'88)'.replace('rgba(','rgba(').replace(/([0-9a-f]{2})/gi, (m,c)=>parseInt(c,16)+',').slice(0,-1)+',.25)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+  // Draw gradient fill (simplified)
   ctx.beginPath();
   points.forEach((p,i) => {
-    const x = pad.l + i*xStep;
-    const y = pad.t + h - (p.v-minV)*yScale;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    const v = chartMode==='temp'?p.temp:chartMode==='humidity'?p.humidity:p.wind;
+    i===0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v));
   });
-  ctx.strokeStyle = '#e8441a'; ctx.lineWidth = 2.5; ctx.stroke();
-  // Fill
-  ctx.lineTo(pad.l+(points.length-1)*xStep, pad.t+h);
-  ctx.lineTo(pad.l, pad.t+h); ctx.closePath();
-  ctx.fillStyle = 'rgba(232,68,26,.1)'; ctx.fill();
-  // Dots + labels
+  ctx.lineTo(toX(points.length-1), PAD.t+cH);
+  ctx.lineTo(PAD.l, PAD.t+cH);
+  ctx.closePath();
+  ctx.fillStyle = chartMode==='temp' ? 'rgba(232,68,26,.12)' : chartMode==='humidity' ? 'rgba(79,195,247,.12)' : 'rgba(102,187,106,.12)';
+  ctx.fill();
+
+  // Main line (smooth)
+  ctx.beginPath();
   points.forEach((p,i) => {
-    const x = pad.l + i*xStep;
-    const y = pad.t + h - (p.v-minV)*yScale;
-    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2);
-    ctx.fillStyle='#e8441a'; ctx.fill();
-    if (i % Math.ceil(points.length/6) === 0 || i===points.length-1) {
-      ctx.fillStyle = document.body.classList.contains('dark') ? '#aaa' : '#888';
-      ctx.font='9px monospace'; ctx.textAlign='center';
-      ctx.fillText(p.t, x, pad.t+h+16);
-    }
+    const v  = chartMode==='temp'?p.temp:chartMode==='humidity'?p.humidity:p.wind;
+    const x  = toX(i), y = toY(v);
+    if (i === 0) { ctx.moveTo(x,y); return; }
+    const px = toX(i-1);
+    const pv = chartMode==='temp'?points[i-1].temp:chartMode==='humidity'?points[i-1].humidity:points[i-1].wind;
+    const py = toY(pv);
+    const cpx = (px+x)/2;
+    ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
+  });
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth   = 2.5;
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+
+  // Dots
+  points.forEach((p,i) => {
+    const v = chartMode==='temp'?p.temp:chartMode==='humidity'?p.humidity:p.wind;
+    const x = toX(i), y = toY(v);
+    ctx.beginPath(); ctx.arc(x, y, i===points.length-1?5:3, 0, Math.PI*2);
+    ctx.fillStyle = i===points.length-1 ? '#fff' : lineColor;
+    ctx.strokeStyle = lineColor; ctx.lineWidth=1.5; ctx.fill(); ctx.stroke();
+  });
+
+  // Current value callout (last point)
+  if (points.length > 0) {
+    const lv = vals[vals.length-1];
+    const lx = toX(points.length-1), ly = toY(lv);
+    ctx.fillStyle = lineColor;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(lx-22, ly-24, 44, 20, 4) : ctx.rect(lx-22, ly-24, 44, 20);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(lv+sfx, lx, ly-10);
+  }
+
+  // X labels
+  const step = Math.max(1, Math.floor(points.length/6));
+  ctx.fillStyle = isDark ? '#555' : '#bbb';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+  points.forEach((p,i) => {
+    if (i % step === 0 || i===points.length-1) ctx.fillText(p.t, toX(i), PAD.t+cH+18);
+  });
+
+  // Y axis line
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t+cH); ctx.stroke();
+}
+
+// ── World Map ──────────────────────────────────────────────────────────────
+let mapScale = 1, mapTx = 0, mapTy = 0, mapDragging = false, mapDragStart = {};
+
+function latLonToSVG(lat, lon) {
+  // Mercator projection matching the viewBox 0 0 1010 506
+  const x = ((lon + 180) / 360) * 1010;
+  const latRad = lat * Math.PI / 180;
+  const y = (0.5 - Math.log(Math.tan(Math.PI/4 + latRad/2)) / (2*Math.PI)) * 506;
+  return {x, y};
+}
+
+function tempColor(t) {
+  if (t > 35) return '#f44336';
+  if (t > 25) return '#ff9800';
+  if (t > 15) return '#4caf50';
+  if (t >  5) return '#2196f3';
+  return '#9c27b0';
+}
+
+function renderMapDots(weatherList) {
+  const svg   = document.getElementById('world-svg');
+  const group = document.getElementById('map-city-dots');
+  const tt    = document.getElementById('map-tooltip');
+  if (!group) return;
+  group.innerHTML = '';
+
+  weatherList.forEach(w => {
+    const {x, y} = latLonToSVG(w.lat||0, w.lon||0);
+    if (isNaN(x)||isNaN(y)||y<0||y>506||x<0||x>1010) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','map-city-group');
+
+    // Pulse ring
+    const pulse = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    pulse.setAttribute('cx', x); pulse.setAttribute('cy', y); pulse.setAttribute('r', 9);
+    pulse.setAttribute('fill', 'none');
+    pulse.setAttribute('stroke', tempColor(w.temp)); pulse.setAttribute('stroke-width','1.5');
+    pulse.setAttribute('opacity','0.4');
+    pulse.innerHTML = `<animate attributeName="r" from="6" to="14" dur="2s" repeatCount="indefinite"/>
+                       <animate attributeName="opacity" from="0.4" to="0" dur="2s" repeatCount="indefinite"/>`;
+
+    // Main dot
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r','6');
+    dot.setAttribute('fill', tempColor(w.temp));
+    dot.setAttribute('stroke','#fff'); dot.setAttribute('stroke-width','1.2');
+    dot.setAttribute('class','map-city-dot');
+
+    // City label (shows on hover)
+    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+    label.setAttribute('x', x+9); label.setAttribute('y', y+4);
+    label.setAttribute('class','map-city-label');
+    label.textContent = w.city;
+
+    g.appendChild(pulse); g.appendChild(dot); g.appendChild(label);
+
+    // Hover tooltip
+    g.addEventListener('mouseenter', e => {
+      const svgRect = svg.getBoundingClientRect();
+      const px = (x/1010)*svgRect.width  + svgRect.left;
+      const py = (y/506) *svgRect.height + svgRect.top;
+      tt.innerHTML = `<div class="map-tooltip-city">${w.icon||'🌡️'} ${w.city}</div>
+        <div>🌡 ${dispTemp(w.temp)} &nbsp; 💧${w.humidity||'—'}%</div>
+        <div>💨 ${w.wind_speed||'—'} km/h &nbsp; UV ${w.uv_index||'—'}</div>
+        <div style="color:${w.aqi_color||'#0c8'};margin-top:2px;">AQI ${w.aqi||'—'} · ${w.aqi_label||'—'}</div>`;
+      const mapRect = document.getElementById('map-wrap').getBoundingClientRect();
+      tt.style.left = (px - mapRect.left + 14) + 'px';
+      tt.style.top  = (py - mapRect.top  - 20) + 'px';
+      tt.style.display = 'block';
+    });
+    g.addEventListener('mouseleave', ()=>{ tt.style.display='none'; });
+    g.addEventListener('click', ()=>selectCity(w.city));
+    group.appendChild(g);
   });
 }
 
-// ── World map dots ─────────────────────────────────────────────────────────
-function renderMapDots(weatherList) {
-  const wrap = document.getElementById('map-wrap');
-  const dotsEl = document.getElementById('map-dots');
-  dotsEl.innerHTML = '';
-  const W = wrap.offsetWidth, H = wrap.offsetHeight;
-  weatherList.forEach(w => {
-    // Mercator projection approx
-    const x = ((w.lon + 180) / 360) * W;
-    const latRad = w.lat * Math.PI / 180;
-    const y = (1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * H;
-    if (isNaN(x)||isNaN(y)||y<0||y>H) return;
-    const dot = document.createElement('div');
-    dot.className = 'map-dot';
-    dot.style.left = x+'px'; dot.style.top = y+'px';
-    // Color by temp
-    const t = w.temp;
-    dot.style.background = t>35?'#f44336':t>25?'#ff9800':t>15?'#4caf50':t>5?'#2196f3':'#9c27b0';
-    dot.title = `${w.city}: ${dispTemp(t)}`;
-    dot.addEventListener('mouseenter', e => {
-      const tt = document.getElementById('map-tooltip');
-      tt.innerHTML = `<b>${w.city}</b><br>${w.icon} ${dispTemp(t)}<br>${w.condition}`;
-      tt.style.display='block'; tt.style.left=(x+14)+'px'; tt.style.top=(y-20)+'px';
-    });
-    dot.addEventListener('mouseleave', ()=>{ document.getElementById('map-tooltip').style.display='none'; });
-    dot.addEventListener('click', ()=>selectCity(w.city));
-    dotsEl.appendChild(dot);
-  });
+// Map zoom/pan
+function mapZoom(factor) {
+  mapScale *= factor;
+  mapScale = Math.min(Math.max(mapScale, 0.8), 5);
+  applyMapTransform();
+}
+function mapReset() { mapScale=1; mapTx=0; mapTy=0; applyMapTransform(); }
+function applyMapTransform() {
+  const g = document.getElementById('map-city-dots');
+  const svg = document.getElementById('world-svg');
+  const transform = `scale(${mapScale}) translate(${mapTx}px,${mapTy}px)`;
+  if (svg) svg.style.transform = transform;
+  if (g)   g.style.transform   = transform;
+}
+
+// Drag to pan
+const mapWrap = document.getElementById('map-wrap');
+if (mapWrap) {
+  mapWrap.addEventListener('mousedown', e => { mapDragging=true; mapDragStart={x:e.clientX-mapTx*mapScale, y:e.clientY-mapTy*mapScale}; mapWrap.style.cursor='grabbing'; });
+  mapWrap.addEventListener('mousemove', e => { if(!mapDragging) return; mapTx=(e.clientX-mapDragStart.x)/mapScale; mapTy=(e.clientY-mapDragStart.y)/mapScale; applyMapTransform(); });
+  mapWrap.addEventListener('mouseup',   ()=>{ mapDragging=false; mapWrap.style.cursor='grab'; });
+  mapWrap.addEventListener('mouseleave',()=>{ mapDragging=false; });
+  mapWrap.addEventListener('wheel', e => { e.preventDefault(); mapZoom(e.deltaY<0?1.15:0.87); }, {passive:false});
 }
 
 // ── Forecast ───────────────────────────────────────────────────────────────
