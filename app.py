@@ -1846,9 +1846,9 @@ function hierGoHome() {
   document.getElementById('hier-search').value = '';
   document.getElementById('hier-search').placeholder = 'Search within current level...';
   document.getElementById('hier-results-inner').innerHTML =
-    '<div style="padding:12px 16px;font-family:monospace;font-size:.68rem;color:#666;">Type a country, state or district name to begin browsing.</div>';
+    `<div style="padding:12px 16px;font-family:monospace;font-size:.68rem;color:#666;">Type a country, state or district name to begin browsing.</div>`;
   document.getElementById('hier-breadcrumb').innerHTML =
-    '<span style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:#666;">Start typing to explore...</span>';
+    `<span style="font-family:'Space Mono',monospace;font-size:.62rem;color:#666;">Start typing to explore...</span>`;
 }
 
 function hierGoBack(idx) {
