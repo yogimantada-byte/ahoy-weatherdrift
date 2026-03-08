@@ -2127,10 +2127,46 @@ function renderNewCityCard(w, countryCode, countryName) {
 }
 
 // ── Share ──────────────────────────────────────────────────────────────────
+// ── Delete / Restore cities (localStorage-backed — survives page refresh) ──
+const LS_DELETED = 'wd-deleted-cities';   // key in localStorage
+
+function _getDeleted() {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_DELETED) || '[]')); }
+  catch(e) { return new Set(); }
+}
+function _saveDeleted(set) {
+  try { localStorage.setItem(LS_DELETED, JSON.stringify([...set])); } catch(e) {}
+}
+
+// On every page load: hide any previously deleted city cards immediately
+(function applyDeletedOnLoad() {
+  const deleted = _getDeleted();
+  if (!deleted.size) return;
+  deleted.forEach(cityName => {
+    const card = document.querySelector(`.city-card[data-city="${cityName}"]`);
+    if (card) {
+      const grid = card.closest('.city-grid');
+      card.remove();
+      if (grid && grid.querySelectorAll('.city-card').length === 0) {
+        const section = grid.closest('section[data-country-name]');
+        if (section) section.remove();
+      }
+    }
+  });
+  // Also remove from allCities
+  allCities = allCities.filter(c => !deleted.has(c.city));
+  renderRestorePanel();
+})();
+
 function deleteCity(cityName) {
   if (!confirm(`Remove "${cityName}" from the dashboard?`)) return;
 
-  // Optimistically remove card from DOM
+  // 1. Save to localStorage immediately — survives all future refreshes
+  const deleted = _getDeleted();
+  deleted.add(cityName);
+  _saveDeleted(deleted);
+
+  // 2. Remove card from DOM with animation
   const card = document.querySelector(`.city-card[data-city="${cityName}"]`);
   if (card) {
     card.style.transition = 'opacity .3s, transform .3s';
@@ -2139,7 +2175,6 @@ function deleteCity(cityName) {
     setTimeout(() => {
       const grid = card.closest('.city-grid');
       card.remove();
-      // Remove country section if grid is now empty
       if (grid && grid.querySelectorAll('.city-card').length === 0) {
         const section = grid.closest('section[data-country-name]');
         if (section) section.remove();
@@ -2147,70 +2182,77 @@ function deleteCity(cityName) {
     }, 300);
   }
 
-  // Remove from allCities array
+  // 3. Remove from allCities runtime array
   const idx = allCities.findIndex(c => c.city === cityName);
   if (idx !== -1) allCities.splice(idx, 1);
 
-  // If this was the selected city, clear featured panel
+  // 4. Clear featured panel if this was selected
   if (currentCity === cityName) {
     currentCity = null;
     document.getElementById('feat-city').textContent = '—';
   }
 
-  // Tell backend to remove from cache + custom cities
+  // 5. Tell backend (best-effort — keeps cache clean for this session)
   fetch('/api/remove-city', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({name: cityName})
-  })
-  .then(() => loadRestorePanel())  // show restore panel immediately
-  .catch(() => {});
+  }).catch(() => {});
+
+  // 6. Update restore panel
+  renderRestorePanel();
 }
 
-// ── Restore deleted cities ────────────────────────────────────────────────
-function loadRestorePanel() {
-  fetch('/api/deleted-cities')
-    .then(r => r.json())
-    .then(data => {
-      const deleted = data.deleted || [];
-      const section = document.getElementById('restore-section');
-      const list    = document.getElementById('restore-list');
-      const empty   = document.getElementById('restore-empty');
-      if (!deleted.length) {
-        section.style.display = 'none';
-        return;
-      }
-      section.style.display = 'block';
-      empty.style.display = deleted.length ? 'none' : 'block';
-      const flagMap = {IN:'🇮🇳',JP:'🇯🇵',RU:'🇷🇺',ZA:'🇿🇦'};
-      list.innerHTML = deleted.map(d => `
-        <button onclick="restoreCity('${d.name}')" style="
-          display:inline-flex;align-items:center;gap:6px;
-          background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.4);
-          color:#4caf50;padding:6px 14px;border-radius:4px;cursor:pointer;
-          font-family:monospace;font-size:.68rem;letter-spacing:.5px;transition:all .2s;">
-          ${flagMap[d.country]||'🌍'} ${d.name} <span style="color:#888;font-size:.6rem;">↩ Restore</span>
-        </button>`).join('');
-    })
-    .catch(() => {});
+// ── Restore panel ─────────────────────────────────────────────────────────
+function renderRestorePanel() {
+  const deleted = _getDeleted();
+  const section = document.getElementById('restore-section');
+  const list    = document.getElementById('restore-list');
+  const empty   = document.getElementById('restore-empty');
+  if (!deleted.size) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  empty.style.display = 'none';
+  const flagMap = {IN:'🇮🇳',JP:'🇯🇵',RU:'🇷🇺',ZA:'🇿🇦'};
+  // Look up country from all known city data
+  const allKnown = {};
+  document.querySelectorAll('.city-card').forEach(c => {
+    allKnown[c.dataset.city] = c.dataset.country;
+  });
+  list.innerHTML = [...deleted].sort().map(name => {
+    const country = allKnown[name] || '';
+    const flag    = flagMap[country] || '🌍';
+    return `<button onclick="restoreCity('${name}')" style="
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.4);
+      color:#4caf50;padding:6px 14px;border-radius:4px;cursor:pointer;
+      font-family:monospace;font-size:.68rem;letter-spacing:.5px;transition:all .2s;">
+      ${flag} ${name} <span style="color:#888;font-size:.6rem;">↩ Restore</span>
+    </button>`;
+  }).join('');
 }
 
 function restoreCity(name) {
+  // Remove from localStorage deleted set
+  const deleted = _getDeleted();
+  deleted.delete(name);
+  _saveDeleted(deleted);
+
+  // Tell backend to restore (best-effort)
   fetch('/api/restore-city', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({name})
-  })
-  .then(r => r.json())
-  .then(() => {
-    // Reload page to re-fetch and show restored city
-    window.location.reload();
-  })
-  .catch(() => {});
+  }).catch(() => {});
+
+  // Reload page to show restored city card
+  window.location.reload();
 }
 
-// Load restore panel on page load
-loadRestorePanel();
+// Render restore panel on initial load
+renderRestorePanel();
 
 function shareWhatsApp() {
   const city=document.getElementById('feat-city').textContent;
