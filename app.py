@@ -1431,6 +1431,8 @@ function drawChart(points) {
 let _leafletMap       = null;
 let _leafletMarkers   = [];
 let _lastWeatherList  = [];   // persists across zoom re-renders
+let _onMapZoom        = null; // registered once in initLeafletMap
+let _zoomTimer        = null; // debounce handle for zoom re-render
 let _mapSearchTimer   = null;
 let _mapSearchResults = [];
 let _clickMarker      = null;
@@ -1512,13 +1514,19 @@ function initLeafletMap() {
 
   // Click anywhere → fetch weather at that point
   _leafletMap.on('click', function(e) {
-    // Ignore if clicking a marker popup
     if (e.originalEvent && e.originalEvent.target.closest &&
         e.originalEvent.target.closest('.leaflet-popup')) return;
-    const lat = e.latlng.lat.toFixed(5);
-    const lon = e.latlng.lng.toFixed(5);
-    mapClickWeather(lat, lon);
+    mapClickWeather(e.latlng.lat.toFixed(5), e.latlng.lng.toFixed(5));
   });
+
+  // Register zoomend ONCE here — debounced so it fires once after zoom settles
+  _onMapZoom = function() {
+    clearTimeout(_zoomTimer);
+    _zoomTimer = setTimeout(function() {
+      if (_lastWeatherList && _lastWeatherList.length) renderMapDots(null);
+    }, 200);
+  };
+  _leafletMap.on('zoomend', _onMapZoom);
 }
 
 function setMapView(viewKey) {
@@ -1684,19 +1692,7 @@ function renderMapDots(weatherList) {
     _leafletMarkers.push(marker);
   });
 
-  // Debounced zoom re-render — fires once after zoom animation fully settles.
-  // Uses 'zoomend' (fires once per discrete zoom, not per animation frame).
-  // Guard: skip if already registered.
-  if (!_onMapZoom) {
-    let _zoomTimer = null;
-    _onMapZoom = function() {
-      clearTimeout(_zoomTimer);
-      _zoomTimer = setTimeout(function() {
-        if (_lastWeatherList && _lastWeatherList.length) renderMapDots(null);
-      }, 150);
-    };
-    _leafletMap.on('zoomend', _onMapZoom);
-  }
+  // zoomend registered once in initLeafletMap — not here
 }
 
 // Fit map to show all city markers
@@ -2205,12 +2201,21 @@ function geocodeSearch(q) {
   box.style.display='block';
   box.innerHTML='<div style="padding:12px 14px;font-family:monospace;font-size:.68rem;color:#666;">Searching...</div>';
   geocodeTimer = setTimeout(()=>{
-    fetch('/api/geocode?q='+encodeURIComponent(q))
-      .then(r=>r.json())
-      .then(data=>{
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 14000);
+    fetch('/api/geocode?q='+encodeURIComponent(q), {signal: ctrl.signal})
+      .then(r => { clearTimeout(timeoutId); return r.json(); })
+      .then(data => {
         _geoResults = data.results || [];
+        if (data.error && !_geoResults.length) {
+          box.innerHTML=`<div style="padding:12px 14px;font-family:monospace;font-size:.68rem;color:#f44336;">
+            ✕ Search service unavailable. <span onclick="geocodeSearch('${q.replace(/'/g,"\\'")}');return false;"
+              style="color:#e8441a;cursor:pointer;text-decoration:underline;">Retry</span>
+          </div>`;
+          return;
+        }
         if (!_geoResults.length) {
-          box.innerHTML='<div style="padding:12px 14px;font-family:monospace;font-size:.68rem;color:#888;">No results. Try a different spelling.</div>';
+          box.innerHTML='<div style="padding:12px 14px;font-family:monospace;font-size:.68rem;color:#888;">No results found. Try a different spelling or add country name.</div>';
           return;
         }
         box.innerHTML = _geoResults.map((r,i)=>`
@@ -2223,7 +2228,15 @@ function geocodeSearch(q) {
             <span style="color:#555;font-size:.58rem;">${r.place_type||'Place'} · ${r.lat.toFixed(2)}, ${r.lon.toFixed(2)}</span>
           </div>`).join('');
       })
-      .catch(()=>{ box.innerHTML='<div style="padding:12px 14px;font-family:monospace;font-size:.68rem;color:#f44336;">Search failed.</div>'; });
+      .catch(err => {
+        clearTimeout(timeoutId);
+        const isTimeout = err.name === 'AbortError';
+        box.innerHTML=`<div style="padding:12px 14px;font-family:monospace;font-size:.68rem;color:#f44336;">
+          ✕ ${isTimeout ? 'Search timed out.' : 'Search failed.'} 
+          <span onclick="geocodeSearch(document.getElementById('add-city-name').value);return false;"
+            style="color:#e8441a;cursor:pointer;text-decoration:underline;">Retry</span>
+        </div>`;
+      });
   }, 420);
 }
 
@@ -2257,9 +2270,17 @@ function addCustomCity() {
   const countryName = nameEl.dataset.countryName || 'Custom';
   const msg  = document.getElementById('add-msg');
   const btn  = document.getElementById('add-city-btn');
-  if (!name || isNaN(lat) || isNaN(lon)) {
-    msg.innerHTML='⚠️ Please select a city from the dropdown first.';
+  if (!name) {
+    msg.innerHTML='⚠️ Type a city name and select from the dropdown.';
     msg.style.color='#ff9800'; msg.style.display='block'; return;
+  }
+  if (isNaN(lat) || isNaN(lon)) {
+    msg.innerHTML='⚠️ Select a result from the dropdown list first.';
+    msg.style.color='#ff9800'; msg.style.display='block';
+    // Re-trigger search so dropdown reappears
+    const box = document.getElementById('geocode-results');
+    if (box && name.length >= 2 && !_geoResults.length) geocodeSearch(name);
+    return;
   }
   msg.innerHTML=`⏳ Fetching weather for <b>${name}</b>...`;
   msg.style.color='var(--accent)'; msg.style.display='block';
@@ -2742,7 +2763,7 @@ def reverse_geocode():
             "https://nominatim.openstreetmap.org/reverse",
             params={"lat": lat, "lon": lon, "format": "json",
                     "zoom": 14, "addressdetails": 1, "accept-language": "en"},
-            headers={"User-Agent": "AHOY WeatherDrift/2.0 (weather app)"},
+            headers={"User-Agent": "AHOY WeatherDrift/2.0 (railway.app; weather dashboard)"},
             timeout=8
         )
         data = r.json()
@@ -2774,12 +2795,23 @@ def geocode():
         return jsonify({"error": "No query"}), 400
 
     def _fetch(params):
-        return requests.get(
-            "https://nominatim.openstreetmap.org/search",
-            params=params,
-            headers={"User-Agent": "AHOY WeatherDrift/2.0 (weather app)"},
-            timeout=10
-        ).json()
+        """Fetch from Nominatim with retry on timeout."""
+        for attempt in range(2):
+            try:
+                r = requests.get(
+                    "https://nominatim.openstreetmap.org/search",
+                    params=params,
+                    headers={"User-Agent": "AHOY WeatherDrift/2.0 (railway.app; weather dashboard)"},
+                    timeout=12
+                )
+                r.raise_for_status()
+                return r.json()
+            except requests.exceptions.Timeout:
+                if attempt == 0: continue
+                return []
+            except Exception:
+                return []
+        return []
 
     def _parse(results, boost_india=False):
         suggestions = []
@@ -2918,7 +2950,8 @@ def geocode():
         return jsonify({"results": final})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Geocode error: {e}")
+        return jsonify({"results": [], "error": str(e)}), 200   # 200 so JS can show friendly message
 
 @app.route("/api/hierarchy")
 def api_hierarchy():
@@ -2942,7 +2975,7 @@ def api_hierarchy():
         r = requests.get(
             "https://nominatim.openstreetmap.org/search",
             params=params,
-            headers={"User-Agent": "WeatherDrift/2.0"},
+            headers={"User-Agent": "AHOY WeatherDrift/2.0 (railway.app; weather dashboard)"},
             timeout=10
         )
         items = r.json()
