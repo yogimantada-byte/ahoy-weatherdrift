@@ -22,6 +22,7 @@ CITIES = {
     "Jaipur":          {"lat": 26.91,  "lon": 75.79,  "country": "IN"},
     "Visakhapatnam":   {"lat": 17.69,  "lon": 83.22,  "country": "IN"},
     "Vijayawada":      {"lat": 16.51,  "lon": 80.62,  "country": "IN"},
+    "R Bhimavaram":    {"lat": 17.69,  "lon": 82.89,  "country": "IN"},
     "Surat":           {"lat": 21.17,  "lon": 72.83,  "country": "IN"},
     "Vadodara":        {"lat": 22.31,  "lon": 73.18,  "country": "IN"},
     "Rajkot":          {"lat": 22.30,  "lon": 70.80,  "country": "IN"},
