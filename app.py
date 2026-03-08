@@ -251,7 +251,7 @@ HTML_TEMPLATE = """
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WeatherDrift — Global Weather Intelligence</title>
+<title>AHOY WeatherDrift — Global Weather Intelligence</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌤️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous" defer></script>
@@ -546,7 +546,7 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
 <header>
   <div class="logo-block">
     <div>
-      <div class="logo">Weather<span>Drift</span></div>
+      <div class="logo">AHOY Weather<span>Drift</span></div>
       <div class="tagline">Global Atmospheric Intelligence</div>
     </div>
   </div>
@@ -1062,7 +1062,7 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
 </main>
 
 <footer>
-  <div class="footer-logo">Weather<span>Drift</span></div>
+  <div class="footer-logo">AHOY Weather<span>Drift</span></div>
   <div class="footer-info">
     <div>Powered by Open-Meteo · Flask · Python</div>
     <div>Data: ECMWF · NOAA GFS · DWD ICON</div>
@@ -1310,7 +1310,7 @@ function checkAlerts(d) {
     document.getElementById('alert-text').textContent = alerts[0];
     bar.classList.add('show');
     if (Notification.permission==='granted') {
-      new Notification('WeatherDrift Alert', {body: alerts[0], icon:'🌤️'});
+      new Notification('AHOY WeatherDrift Alert', {body: alerts[0], icon:'🌤️'});
     }
   } else { bar.classList.remove('show'); }
 }
@@ -1321,7 +1321,7 @@ function toggleNotifications() {
   } else {
     Notification.requestPermission().then(p => {
       if (p === 'granted') {
-        new Notification('WeatherDrift', {body:'Weather alerts enabled! ✅'});
+        new Notification('AHOY WeatherDrift', {body:'Weather alerts enabled! ✅'});
         document.getElementById('alert-bar') && document.querySelector('[onclick="toggleNotifications()"]').classList.add('active');
       }
     });
@@ -2081,7 +2081,7 @@ function shareTwitter() {
   const city=document.getElementById('feat-city').textContent;
   const temp=document.getElementById('feat-temp').textContent;
   const cond=document.getElementById('feat-condition').textContent;
-  window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(`🌤️ ${city}: ${temp} — ${cond} | WeatherDrift`)+'&url='+encodeURIComponent(window.location.href),'_blank');
+  window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(`🌤️ ${city}: ${temp} — ${cond} | AHOY WeatherDrift`)+'&url='+encodeURIComponent(window.location.href),'_blank');
 }
 function downloadCard() {
   const city=document.getElementById('feat-city').textContent;
@@ -2112,7 +2112,7 @@ function downloadCard() {
   ctx.fillStyle='#555'; ctx.font='14px monospace';
   ctx.fillText(date,60,360);
   ctx.fillStyle='#e8441a'; ctx.font='bold 16px monospace'; ctx.textAlign='right';
-  ctx.fillText('WeatherDrift',760,460);
+  ctx.fillText('AHOY WeatherDrift',760,460);
   const a=document.createElement('a');
   a.download=`weather-${city.toLowerCase().replace(/ /g,'-')}.png`;
   a.href=canvas.toDataURL();a.click();
@@ -2202,7 +2202,7 @@ setTimeout(()=>{
 // Initial bg
 setWeatherBg('{{ featured.condition }}');
 
-console.log('WeatherDrift v2.0 ready ✅');
+console.log('AHOY WeatherDrift v2.0 ready ✅');
 </script>
 </body>
 </html>
