@@ -356,20 +356,20 @@ header{background:rgba(10,10,15,.96);backdrop-filter:blur(20px);-webkit-backdrop
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* ── TOOLBAR ── */
-.toolbar{background:var(--toolbar-bg);padding:10px 40px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.06);}
-.search-wrap{position:relative;flex:1;min-width:200px;max-width:360px;}
+.toolbar{background:var(--toolbar-bg);padding:10px 40px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.06);position:relative;z-index:900;}
+.search-wrap{position:relative;flex:1;min-width:200px;max-width:360px;overflow:visible;}
 .search-wrap input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:8px 14px 8px 36px;color:#f2ede6;font-family:'Space Mono',monospace;font-size:.72rem;letter-spacing:1px;outline:none;transition:border .2s;}
 .search-wrap input::placeholder{color:#666;}
 .search-wrap input:focus{border-color:var(--accent);}
 .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.9rem;pointer-events:none;}
-#search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1a1a22;border:1px solid rgba(255,255,255,.1);border-radius:6px;z-index:1100;max-height:260px;overflow-y:auto;display:none;}
+#search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1a1a22;border:1px solid rgba(255,255,255,.1);border-radius:6px;z-index:1200;max-height:280px;overflow-y:auto;display:none;box-shadow:0 8px 32px rgba(0,0,0,.6);}
 .search-result-item{padding:10px 14px;font-family:'Space Mono',monospace;font-size:.7rem;color:#ccc;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.05);}
 .search-result-item:hover{background:rgba(232,68,26,.15);color:white;}
 .toolbar-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:7px 14px;color:#ccc;font-family:'Space Mono',monospace;font-size:.68rem;letter-spacing:1px;cursor:pointer;transition:all .2s;white-space:nowrap;}
 .toolbar-btn:hover,.toolbar-btn.active{background:var(--accent);color:white;border-color:var(--accent);}
 
 /* ── CLOCKS ── */
-.clocks-bar{background:#111118;padding:8px 40px;display:flex;gap:30px;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,.04);}
+.clocks-bar{background:#111118;padding:8px 40px;display:flex;gap:30px;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,.04);position:relative;z-index:100;}
 .clocks-bar::-webkit-scrollbar{height:3px;}
 .clocks-bar::-webkit-scrollbar-thumb{background:var(--accent);}
 .clock-item{display:flex;align-items:center;gap:10px;white-space:nowrap;}
