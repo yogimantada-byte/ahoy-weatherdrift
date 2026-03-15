@@ -951,7 +951,7 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
 <section>
   {% for group in country_groups %}
   <section data-country-name="{{ group.name }}">
-  <div class="section-label" style="margin-top:40px;">
+  <div class="section-label" style="margin-top:40px;" data-country-label="{{ group.code }}">
     <span class="flag-emoji">{{ group.flag }}</span> {{ group.name }}
   </div>
   <div class="city-grid" id="grid-{{ group.code }}">
@@ -1092,14 +1092,6 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-// Create search dropdown as direct child of body — avoids ALL stacking context issues
-(function createSearchPortal() {
-  const el = document.createElement('div');
-  el.id = 'search-results';
-  el.style.cssText = 'display:none;position:fixed;z-index:2147483647;background:#1a1a22;border:1px solid rgba(255,255,255,.15);border-radius:8px;max-height:340px;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.9);min-width:300px;pointer-events:auto;';
-  document.body.appendChild(el);
-})();
-
 let currentCity = null;
 let isCelsius = true;
 let allCities = [];
@@ -2782,6 +2774,31 @@ if (typeof twemoji!=='undefined') {
   window.addEventListener('load',()=>twemoji.parse(document.body));
 }
 
+// ── Search dropdown portal — runs after full DOM load ──────────────────────
+// Appended to body so it's outside ALL stacking contexts
+(function() {
+  const existing = document.getElementById('search-results');
+  if (existing) existing.remove();          // remove any old one
+  const el = document.createElement('div');
+  el.id = 'search-results';
+  Object.assign(el.style, {
+    display:    'none',
+    position:   'fixed',
+    zIndex:     '2147483647',              // max possible z-index
+    background: '#1a1a22',
+    border:     '1px solid rgba(255,255,255,.15)',
+    borderRadius: '8px',
+    maxHeight:  '340px',
+    overflowY:  'auto',
+    boxShadow:  '0 16px 48px rgba(0,0,0,.95)',
+    minWidth:   '300px',
+    pointerEvents: 'auto',
+    fontFamily: 'monospace',
+  });
+  document.body.appendChild(el);
+  console.log('[WeatherDrift] Search portal injected ✅');
+})();
+
 // Initial map render — init Leaflet then plot dots
 setTimeout(()=>{
   initLeafletMap();
@@ -2802,170 +2819,204 @@ const LANGS = ['en', 'te', 'hi'];
 const LANG_LABELS = { en: '🌐 EN', te: '🌐 తె', hi: '🌐 हि' };
 let _currentLang = localStorage.getItem('wd-lang') || 'en';
 
-// All UI string translations
+// ── Complete Translation System ──────────────────────────────────────────
 const T = {
   en: {
-    tagline:        'Global Atmospheric Intelligence',
-    live:           'LIVE',
-    featured:       'Featured City',
-    loading:        '· Loading...',
-    history:        '📈 Temperature History',
-    forecast:       '7-Day Outlook',
-    map:            '🗺️ World Weather Map',
-    restore:        '♻️ Restore Removed Cities',
-    addloc:         '➕ Add Location',
-    compare:        '⚖️ City Comparison',
-    humidity:       'Humidity',
-    wind:           'Wind',
-    uv:             'UV Index',
-    pressure:       'Pressure',
-    visibility:     'Visibility',
-    sunrise:        '🌅 Sunrise',
-    sunset:         '🌇 Sunset',
-    rain_prob:      'Rain Probability',
-    feels_like:     'Feels like',
-    updated:        'Updated just now',
-    last_updated:   'Last updated',
-    search_ph:      'Search any city...',
-    temp_chart:     '🌡️ Temp',
-    hum_chart:      '💧 Humidity',
-    wind_chart:     '💨 Wind',
-    quick_search:   '🔍 Quick Search',
-    browse_region:  '🗂 Browse by Region',
-    place_name:     'Place Name',
-    add_btn:        '+ Add',
-    footer_cities:  'cities monitored',
-    footer_tagline: 'Real-time weather intelligence',
-    alerts_title:   '⚡ Active Weather Alerts',
-    no_alerts:      'No active alerts. All clear ✅',
-    current:        'Current',
-    temp_chart:     '🌡 Temp',
-    dark_mode:      '🌙 Dark',
-    compare:        '⚖️ Compare',
-    condition:      'Condition',
-    rain_label:     'Rain Prob.',
+    // Header
+    tagline:'Global Atmospheric Intelligence', live:'LIVE',
+    // Toolbar
+    dark:'🌙 Dark', compare:'⚖️ Compare', alerts:'🔔 Alerts', install:'📲 Install',
+    search_ph:'Search any city...',
+    // Section labels
+    featured:'Featured City', loading:'· Loading...',
+    history:'📈 Temperature History',
+    forecast:'7-Day Outlook',
+    map:'🗺️ World Weather Map',
+    restore:'♻️ Restore Removed Cities',
+    addloc:'➕ Add Location',
+    compare_sec:'⚖️ City Comparison',
+    alerts_title:'⚡ Active Weather Alerts',
+    no_alerts:'No active alerts. All clear ✅',
+    // Stats
+    humidity:'Humidity', wind:'Wind', uv:'UV Index',
+    pressure:'Pressure', visibility:'Visibility',
+    sunrise:'🌅 Sunrise', sunset:'🌇 Sunset',
+    rain_prob:'Rain Probability', feels_like:'Feels like',
+    updated:'Updated just now', last_updated:'Last updated',
+    current:'Current', condition:'Condition', rain_label:'Rain Prob.',
+    // Chart tabs
+    temp_chart:'🌡 Temp', hum_chart:'💧 Humidity', wind_chart:'💨 Wind',
+    // Add form
+    quick_search:'🔍 Quick Search', browse_region:'🗂 Browse by Region',
+    place_name:'Place Name', add_btn:'+ Add',
+    // Footer
+    footer_tagline:'Real-time weather intelligence',
+    // Countries
+    india:'India', japan:'Japan', russia:'Russia', safrica:'South Africa', custom:'Custom',
+    // Clocks
+    clock_india:'India (IST)', clock_japan:'Japan (JST)',
+    clock_russia:'Russia (MSK)', clock_safrica:'S.Africa (SAST)', clock_utc:'UTC',
+    // Preview
+    preview_only:'👁 PREVIEW ONLY',
+    // Misc
+    no_data:'No data', select_city:'Click to select',
+    today:'Today',
   },
   te: {
-    tagline:        'ప్రపంచ వాతావరణ వేదిక',
-    live:           'లైవ్',
-    featured:       'ఎంచుకున్న నగరం',
-    loading:        '· లోడవుతోంది...',
-    history:        '📈 ఉష్ణోగ్రత చరిత్ర',
-    forecast:       '7 రోజుల అంచనా',
-    map:            '🗺️ ప్రపంచ వాతావరణ మ్యాప్',
-    restore:        '♻️ తొలగించిన నగరాలను పునరుద్ధరించు',
-    addloc:         '➕ స్థానం జోడించు',
-    compare:        '⚖️ నగర పోలిక',
-    humidity:       'తేమ',
-    wind:           'గాలి వేగం',
-    uv:             'UV సూచిక',
-    pressure:       'పీడనం',
-    visibility:     'దృశ్యమానత',
-    sunrise:        '🌅 సూర్యోదయం',
-    sunset:         '🌇 సూర్యాస్తమయం',
-    rain_prob:      'వర్షం సంభావ్యత',
-    feels_like:     'అనుభవమయ్యే',
-    updated:        'ఇప్పుడే నవీకరించబడింది',
-    last_updated:   'చివరిగా నవీకరించబడింది',
-    search_ph:      'ఏ నగరైనా వెతకండి...',
-    temp_chart:     '🌡️ ఉష్ణోగ్రత',
-    hum_chart:      '💧 తేమ',
-    wind_chart:     '💨 గాలి',
-    quick_search:   '🔍 త్వరిత శోధన',
-    browse_region:  '🗂 ప్రాంతం చూడు',
-    place_name:     'స్థల పేరు',
-    add_btn:        '+ జోడించు',
-    footer_cities:  'నగరాలు పర్యవేక్షించబడుతున్నాయి',
-    footer_tagline: 'రియల్-టైమ్ వాతావరణ సమాచారం',
-    alerts_title:   '⚡ వాతావరణ హెచ్చరికలు',
-    no_alerts:      'హెచ్చరికలు లేవు ✅',
-    current:        'ప్రస్తుతం',
-    temp_chart:     '🌡 ఉష్ణోగ్రత',
-    dark_mode:      '🌙 చీకటి',
-    compare:        '⚖️ పోలిక',
-    condition:      'పరిస్థితి',
-    rain_label:     'వర్షం %',
+    tagline:'ప్రపంచ వాతావరణ వేదిక', live:'లైవ్',
+    dark:'🌙 చీకటి', compare:'⚖️ పోలిక', alerts:'🔔 హెచ్చరికలు', install:'📲 ఇన్‌స్టాల్',
+    search_ph:'ఏ నగరైనా వెతకండి...',
+    featured:'ఎంచుకున్న నగరం', loading:'· లోడవుతోంది...',
+    history:'📈 ఉష్ణోగ్రత చరిత్ర',
+    forecast:'7 రోజుల అంచనా',
+    map:'🗺️ ప్రపంచ వాతావరణ మ్యాప్',
+    restore:'♻️ తొలగించిన నగరాలు పునరుద్ధరించు',
+    addloc:'➕ స్థానం జోడించు',
+    compare_sec:'⚖️ నగర పోలిక',
+    alerts_title:'⚡ వాతావరణ హెచ్చరికలు',
+    no_alerts:'హెచ్చరికలు లేవు ✅',
+    humidity:'తేమ', wind:'గాలి వేగం', uv:'UV సూచిక',
+    pressure:'పీడనం', visibility:'దృశ్యమానత',
+    sunrise:'🌅 సూర్యోదయం', sunset:'🌇 సూర్యాస్తమయం',
+    rain_prob:'వర్షం సంభావ్యత', feels_like:'అనుభవమయ్యే',
+    updated:'ఇప్పుడే నవీకరించబడింది', last_updated:'చివరి నవీకరణ',
+    current:'ప్రస్తుతం', condition:'పరిస్థితి', rain_label:'వర్షం %',
+    temp_chart:'🌡 ఉష్ణోగ్రత', hum_chart:'💧 తేమ', wind_chart:'💨 గాలి',
+    quick_search:'🔍 త్వరిత శోధన', browse_region:'🗂 ప్రాంతం చూడు',
+    place_name:'స్థల పేరు', add_btn:'+ జోడించు',
+    footer_tagline:'రియల్-టైమ్ వాతావరణ సమాచారం',
+    india:'భారతదేశం', japan:'జపాన్', russia:'రష్యా', safrica:'దక్షిణ ఆఫ్రికా', custom:'కస్టమ్',
+    clock_india:'భారతదేశం (IST)', clock_japan:'జపాన్ (JST)',
+    clock_russia:'రష్యా (MSK)', clock_safrica:'దక్షిణ ఆఫ్రికా (SAST)', clock_utc:'UTC',
+    preview_only:'👁 ప్రివ్యూ మాత్రమే',
+    no_data:'డేటా లేదు', select_city:'క్లిక్ చేయండి',
+    today:'నేడు',
   },
   hi: {
-    tagline:        'वैश्विक मौसम केंद्र',
-    live:           'लाइव',
-    featured:       'चुना हुआ शहर',
-    loading:        '· लोड हो रहा है...',
-    history:        '📈 तापमान इतिहास',
-    forecast:       '7 दिन का पूर्वानुमान',
-    map:            '🗺️ विश्व मौसम मानचित्र',
-    restore:        '♻️ हटाए गए शहर वापस लाएं',
-    addloc:         '➕ स्थान जोड़ें',
-    compare:        '⚖️ शहर तुलना',
-    humidity:       'नमी',
-    wind:           'हवा',
-    uv:             'UV सूचकांक',
-    pressure:       'दबाव',
-    visibility:     'दृश्यता',
-    sunrise:        '🌅 सूर्योदय',
-    sunset:         '🌇 सूर्यास्त',
-    rain_prob:      'बारिश की संभावना',
-    feels_like:     'महसूस होता है',
-    updated:        'अभी अपडेट किया',
-    last_updated:   'अंतिम अपडेट',
-    search_ph:      'कोई भी शहर खोजें...',
-    temp_chart:     '🌡️ तापमान',
-    hum_chart:      '💧 नमी',
-    wind_chart:     '💨 हवा',
-    quick_search:   '🔍 त्वरित खोज',
-    browse_region:  '🗂 क्षेत्र देखें',
-    place_name:     'स्थान का नाम',
-    add_btn:        '+ जोड़ें',
-    footer_cities:  'शहर निगरानी में',
-    footer_tagline: 'रियल-टाइम मौसम जानकारी',
-    alerts_title:   '⚡ मौसम चेतावनियां',
-    no_alerts:      'कोई चेतावनी नहीं ✅',
-    current:        'वर्तमान',
-    temp_chart:     '🌡 तापमान',
-    dark_mode:      '🌙 डार्क',
-    compare:        '⚖️ तुलना',
-    condition:      'स्थिति',
-    rain_label:     'बारिश %',
+    tagline:'वैश्विक मौसम केंद्र', live:'लाइव',
+    dark:'🌙 डार्क', compare:'⚖️ तुलना', alerts:'🔔 चेतावनी', install:'📲 इंस्टॉल',
+    search_ph:'कोई भी शहर खोजें...',
+    featured:'चुना हुआ शहर', loading:'· लोड हो रहा है...',
+    history:'📈 तापमान इतिहास',
+    forecast:'7 दिन का पूर्वानुमान',
+    map:'🗺️ विश्व मौसम मानचित्र',
+    restore:'♻️ हटाए गए शहर वापस लाएं',
+    addloc:'➕ स्थान जोड़ें',
+    compare_sec:'⚖️ शहर तुलना',
+    alerts_title:'⚡ मौसम चेतावनियां',
+    no_alerts:'कोई चेतावनी नहीं ✅',
+    humidity:'नमी', wind:'हवा', uv:'UV सूचकांक',
+    pressure:'दबाव', visibility:'दृश्यता',
+    sunrise:'🌅 सूर्योदय', sunset:'🌇 सूर्यास्त',
+    rain_prob:'बारिश की संभावना', feels_like:'महसूस होता है',
+    updated:'अभी अपडेट किया', last_updated:'अंतिम अपडेट',
+    current:'वर्तमान', condition:'स्थिति', rain_label:'बारिश %',
+    temp_chart:'🌡 तापमान', hum_chart:'💧 नमी', wind_chart:'💨 हवा',
+    quick_search:'🔍 त्वरित खोज', browse_region:'🗂 क्षेत्र देखें',
+    place_name:'स्थान का नाम', add_btn:'+ जोड़ें',
+    footer_tagline:'रियल-टाइम मौसम जानकारी',
+    india:'भारत', japan:'जापान', russia:'रूस', safrica:'दक्षिण अफ्रीका', custom:'कस्टम',
+    clock_india:'भारत (IST)', clock_japan:'जापान (JST)',
+    clock_russia:'रूस (MSK)', clock_safrica:'दक्षिण अफ्रीका (SAST)', clock_utc:'UTC',
+    preview_only:'👁 केवल पूर्वावलोकन',
+    no_data:'डेटा नहीं', select_city:'क्लिक करें',
+    today:'आज',
   },
 };
 
-// Helper: get translation
-function t(key) { return (T[_currentLang] || T.en)[key] || (T.en)[key] || key; }
+function t(key) { return (T[_currentLang]||T.en)[key] || T.en[key] || key; }
 
-// Apply all translations to DOM
 function applyTranslations() {
-  // Static text elements via data-i18n attribute
+  const lang = _currentLang;
+
+  // 1. data-i18n attributes
   document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.getAttribute('data-i18n');
-    if (T[_currentLang] && T[_currentLang][key]) el.textContent = T[_currentLang][key];
-    else if (T.en[key]) el.textContent = T.en[key];
+    const v = t(el.getAttribute('data-i18n'));
+    if (v) el.textContent = v;
   });
-  // Placeholder
+
+  // 2. Toolbar buttons
+  const darkBtn = document.getElementById('dark-btn');
+  if (darkBtn) darkBtn.innerHTML = t('dark');
+  const compareBtn = document.getElementById('compare-btn');
+  if (compareBtn) compareBtn.innerHTML = t('compare');
+  const alertsBtn = document.querySelector('.toolbar-btn[onclick="toggleNotifications()"]');
+  if (alertsBtn) alertsBtn.innerHTML = t('alerts');
+  const installBtn = document.getElementById('install-btn');
+  if (installBtn && installBtn.style.display !== 'none') installBtn.innerHTML = t('install');
+
+  // 3. Search placeholder
   const si = document.getElementById('city-search');
   if (si) si.placeholder = t('search_ph');
-  // Featured loading text
+
+  // 4. Featured section
+  const featLabel = document.querySelector('.featured-section .section-label');
+  if (featLabel) {
+    const loading = document.getElementById('featured-loading');
+    featLabel.textContent = t('featured') + ' ';
+    if (loading) { loading.textContent = t('loading'); featLabel.appendChild(loading); }
+  }
   const fl = document.getElementById('featured-loading');
   if (fl) fl.textContent = t('loading');
-  // Forecast label (keep city name)
+
+  // 5. Clocks bar
+  const clockMap = {
+    'India (IST)':'clock_india','Japan (JST)':'clock_japan',
+    'Russia (MSK)':'clock_russia','S.Africa (SAST)':'clock_safrica','UTC':'clock_utc'
+  };
+  document.querySelectorAll('.clock-country').forEach(el => {
+    const key = Object.keys(clockMap).find(k => el.textContent.includes(k.split(' ')[0]));
+    if (key) el.textContent = t(clockMap[key]);
+  });
+
+  // 6. Country section labels (flag emoji + translated name)
+  document.querySelectorAll('.section-label[data-country-label]').forEach(el => {
+    const code = el.getAttribute('data-country-label');
+    const flagMap = {IN:'🇮🇳',JP:'🇯🇵',RU:'🇷🇺',ZA:'🇿🇦',CUSTOM:'🌍'};
+    const nameMap = {IN:'india',JP:'japan',RU:'russia',ZA:'safrica',CUSTOM:'custom'};
+    const flag = flagMap[code] || '';
+    const name = t(nameMap[code] || 'custom');
+    el.textContent = flag + ' ' + name;
+  });
+
+  // 7. Section labels (by content matching)
+  document.querySelectorAll('.section-label').forEach(el => {
+    const txt = el.textContent.trim();
+    if (txt.includes('Temperature History'))    { const city = document.getElementById('history-city-label')?.textContent; el.textContent = t('history') + ' — '; if(city) { const s=document.createElement('span'); s.id='history-city-label'; s.textContent=city; el.appendChild(s); } }
+    if (txt.includes('City Comparison'))        el.textContent = t('compare_sec');
+    if (txt.includes('Restore Removed'))        el.textContent = t('restore');
+    if (txt.includes('Add Location'))           el.textContent = t('addloc');
+    if (txt.includes('World Weather'))          el.textContent = t('map');
+  });
+
+  // 8. Forecast label (keep city)
   const fc = document.getElementById('forecast-label');
   if (fc) {
     const city = fc.textContent.split('·')[1]?.trim() || '';
     fc.textContent = t('forecast') + (city ? ' · ' + city : '');
   }
-  // Last updated label
+
+  // 9. Last updated
   const lu = document.getElementById('last-updated-label');
-  if (lu && !lu.textContent.includes('Updating')) {
-    const time = lu.textContent.split(':').slice(1).join(':').trim();
-    if (time) lu.textContent = t('last_updated') + ': ' + time;
+  if (lu && lu.textContent && !lu.textContent.includes('Updating')) {
+    const parts = lu.textContent.split(':');
+    if (parts.length > 1) lu.textContent = t('last_updated') + ':' + parts.slice(1).join(':');
   }
-  // Re-render compare panel if open (so labels update)
+
+  // 10. Preview badge
+  const pb = document.getElementById('preview-badge');
+  if (pb) pb.textContent = t('preview_only');
+
+  // 11. Compare panel re-render if open
   const cp = document.getElementById('compare-panel');
-  if (cp && cp.style.display !== 'none') loadCompare();
-  // Update forecast label lang part
-  const fcl = document.getElementById('forecast-label');
-  if (fcl) {
-    const city = fcl.textContent.split('·')[1]?.trim() || '';
-    fcl.textContent = t('forecast') + (city ? ' · ' + city : '');
+  if (cp && cp.style.display !== 'none') setTimeout(loadCompare, 50);
+
+  // 12. Alerts panel title & no-alerts text
+  const at = document.querySelector('.alerts-panel .section-label');
+  if (at) at.textContent = t('alerts_title');
+  const al = document.getElementById('alerts-list');
+  if (al && al.children.length === 1 && al.firstElementChild?.textContent?.includes('No active')) {
+    al.firstElementChild.textContent = t('no_alerts');
   }
 }
 
@@ -2977,7 +3028,6 @@ function applyLang(lang) {
   if (btn) btn.textContent = LANG_LABELS[lang] || '🌐 EN';
   applyTranslations();
 }
-
 function toggleLang() {
   const idx  = LANGS.indexOf(_currentLang);
   const next = LANGS[(idx + 1) % LANGS.length];
