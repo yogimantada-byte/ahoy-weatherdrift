@@ -370,15 +370,17 @@ header{background:rgba(10,10,15,.96);backdrop-filter:blur(20px);-webkit-backdrop
 .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.9rem;pointer-events:none;}
 /* #search-results styled via JS for guaranteed z-index above all stacking contexts */
 #search-results{
-  position: fixed;
-  z-index: 99999;
-  background: #111118;
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.8);
-  max-height: 340px;
-  overflow-y: auto;
-  backdrop-filter: blur(10px);
+  position:absolute;
+  top:110%;
+  left:0;
+  width:100%;
+  z-index:5000;
+  background:#111118;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6);
+  max-height:340px;
+  overflow-y:auto;
 }
 .search-result-item{padding:10px 14px;font-family:'Space Mono',monospace;font-size:.7rem;color:#ccc;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.05);}
 .search-result-item:hover{background:rgba(232,68,26,.15);color:white;}
@@ -713,22 +715,17 @@ img.emoji{height:1.2em;width:1.2em;vertical-align:middle;display:inline-block;}
   </div>
 </header>
 
-<!-- TOOLBAR -->
-<div class="toolbar">
-  <div class="search-wrap">
-    <span class="search-icon">🔍</span>
-    <input type="text" id="city-search" placeholder="Search any city..."
-      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-      role="combobox" aria-autocomplete="list" aria-expanded="false"
-      oninput="handleSearch(this.value)"
-      onfocus="if(this.value.trim()) { document.getElementById('search-results').style.display='block'; _positionSearchDrop(); }">
-  </div>
-  <button class="toolbar-btn" id="unit-btn" onclick="toggleUnit()">°C / °F</button>
-  <button class="toolbar-btn" id="dark-btn" onclick="toggleDark()"><span class="lang-en">🌙 Dark</span><span class="lang-te">🌙 చీకటి</span><span class="lang-hi">🌙 डार्क</span></button>
-  <button class="toolbar-btn" id="compare-btn" onclick="toggleCompare()"><span class="lang-en">⚖️ Compare</span><span class="lang-te">⚖️ పోలిక</span><span class="lang-hi">⚖️ तुलना</span></button>
-  <button class="toolbar-btn" onclick="toggleNotifications()"><span class="lang-en">🔔 Alerts</span><span class="lang-te">🔔 హెచ్చరికలు</span><span class="lang-hi">🔔 चेतावनी</span></button>
-  <button class="toolbar-btn" id="lang-btn" onclick="toggleLang()" title="Language / భాష">🌐 EN</button>
-  <button class="toolbar-btn" id="install-btn" onclick="installPWA()" style="display:none;" title="Install App">📲 <span class="lang-en">Install</span><span class="lang-te">ఇన్‌స్టాల్</span><span class="lang-hi">इंस्टॉल</span></button>
+<div class="search-wrap" style="position:relative;">
+  <span class="search-icon">🔍</span>
+  <input type="text" id="city-search" placeholder="Search any city..."
+    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+    role="combobox" aria-autocomplete="list" aria-expanded="false"
+    oninput="handleSearch(this.value)"
+    onfocus="if(this.value.trim()) { document.getElementById('search-results').style.display='block'; _positionSearchDrop(); }">
+
+  <!-- ⭐ ADD THIS LINE -->
+  <div id="search-results"></div>
+
 </div>
 
 <!-- CLOCKS -->
@@ -3156,64 +3153,66 @@ if (allCities && allCities.length) updateAlertsPanel(allCities);
 # ── Flask Routes ─────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
-    # If cache is stale, serve what we have and trigger background refresh
-    # so next request gets fresh data (avoids blocking the page load)
+    # trigger async refresh only once when stale
     if is_cache_stale() and _cache["weather"] is not None:
-        threading.Thread(target=refresh_cache, daemon=True).start()
-    weather = get_cached_weather()
+        if not getattr(app, "_refresh_running", False):
+            app._refresh_running = True
+            def _bg():
+                try:
+                    refresh_cache()
+                finally:
+                    app._refresh_running = False
+            threading.Thread(target=_bg, daemon=True).start()
 
-    # Map country codes to names for consistent sorting
+    weather = get_cached_weather() or []
+
     CODE_TO_NAME = {
-        "IN": "India", "JP": "Japan", "RU": "Russia", "ZA": "South Africa",
+        "IN": "India",
+        "JP": "Japan",
+        "RU": "Russia",
+        "ZA": "South Africa",
     }
 
-    def sort_key(w):
-        code = w.get("country", "CUSTOM")
-        name = w.get("country_name") or CODE_TO_NAME.get(code, code)
-        return (name, w.get("city", ""))
-
-    weather_sorted = sorted(weather, key=sort_key)
-    featured = weather_sorted[0] if weather_sorted else {}
-    forecast  = get_forecast(featured.get("city","Mumbai"))
-
-    # Build sorted country groups for template
-    country_meta = {
-        "IN":  ("India",        "🇮🇳"),
-        "JP":  ("Japan",        "🇯🇵"),
-        "RU":  ("Russia",       "🇷🇺"),
-        "ZA":  ("South Africa", "🇿🇦"),
-        "CUSTOM": ("Custom",    "🌍"),
-    }
-
-    def get_country_name(code, w):
-        """Resolve display name: prefer stored country_name, else country_meta, else code."""
-        return (w.get("country_name")
-                or country_meta.get(code, (code, "🌍"))[0])
-
-    # Gather all country codes present in data
-    all_codes = sorted(
-        set(w.get("country", "CUSTOM") for w in weather_sorted),
-        key=lambda c: country_meta.get(c, (c, ""))[0]
+    weather_sorted = sorted(
+        weather,
+        key=lambda w: (
+            w.get("country_name")
+            or CODE_TO_NAME.get(w.get("country", "CUSTOM"), "Custom"),
+            w.get("city", "")
+        )
     )
 
+    featured = weather_sorted[0] if weather_sorted else {
+        "city": "Mumbai",
+        "country": "IN"
+    }
+
+    forecast = get_forecast(featured.get("city", "Mumbai"))
+
+    country_meta = {
+        "IN": ("India", "🇮🇳"),
+        "JP": ("Japan", "🇯🇵"),
+        "RU": ("Russia", "🇷🇺"),
+        "ZA": ("South Africa", "🇿🇦"),
+        "CUSTOM": ("Custom", "🌍"),
+    }
+
     country_groups = []
-    for code in all_codes:
+    codes_present = sorted(set(w.get("country", "CUSTOM") for w in weather_sorted))
+
+    for code in codes_present:
         meta = country_meta.get(code, (code, "🌍"))
-        cities = sorted(
-            [w for w in weather_sorted if w.get("country", "CUSTOM") == code],
-            key=lambda w: w.get("city", "")
-        )
+        cities = [w for w in weather_sorted if w.get("country", "CUSTOM") == code]
         if cities:
-            # Use actual country_name from first city if available (for custom countries)
-            display_name = cities[0].get("country_name") or meta[0]
             country_groups.append({
-                "code":   code,
-                "name":   display_name,
-                "flag":   meta[1],
-                "cities": cities,
+                "code": code,
+                "name": cities[0].get("country_name") or meta[0],
+                "flag": meta[1],
+                "cities": cities
             })
 
-    return render_template_string(HTML_TEMPLATE,
+    return render_template_string(
+        HTML_TEMPLATE,
         weather_data=weather_sorted,
         country_groups=country_groups,
         featured=featured,
@@ -3222,7 +3221,6 @@ def index():
         total_cities=len(weather_sorted),
         last_updated=_cache["last_updated"],
     )
-
 @app.route("/api/weather")
 def api_weather():
     # Trigger background refresh if stale (non-blocking)
