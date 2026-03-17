@@ -369,7 +369,7 @@ header{background:rgba(10,10,15,.96);backdrop-filter:blur(20px);-webkit-backdrop
 .toolbar-btn:hover,.toolbar-btn.active{background:var(--accent);color:white;border-color:var(--accent);}
 
 /* ── CLOCKS ── */
-.clocks-bar{background:#111118;padding:8px 40px;display:flex;gap:30px;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,.04);position:relative;z-index:100;}
+.clocks-bar{background:#111118;padding:8px 40px;display:flex;gap:30px;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,.04);position:relative;z-index:10;}
 .clocks-bar::-webkit-scrollbar{height:3px;}
 .clocks-bar::-webkit-scrollbar-thumb{background:var(--accent);}
 .clock-item{display:flex;align-items:center;gap:10px;white-space:nowrap;}
@@ -380,7 +380,7 @@ header{background:rgba(10,10,15,.96);backdrop-filter:blur(20px);-webkit-backdrop
 .clock-date{font-family:'Space Mono',monospace;font-size:.55rem;color:var(--accent);}
 
 /* ── TICKER ── */
-.ticker-wrap{background:var(--accent);overflow:hidden;padding:10px 0;}
+.ticker-wrap{background:var(--accent);overflow:hidden;padding:10px 0;position:relative;z-index:10;}
 .ticker{display:flex;animation:ticker-scroll 40s linear infinite;white-space:nowrap;}
 .ticker-item{font-family:'Space Mono',monospace;font-size:.75rem;font-weight:700;color:white;padding:0 40px;letter-spacing:1px;}
 @keyframes ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
@@ -1163,9 +1163,13 @@ function _positionSearchDrop() {
   const inp = document.getElementById('city-search');
   const box = document.getElementById('search-results');
   if (!inp || !box) return;
+  // Re-append to body so it is always the LAST DOM element painted
+  if (box.parentElement !== document.body) document.body.appendChild(box);
+  // Move to end of body even if already there (ensures last paint order)
+  document.body.appendChild(box);
   const r   = inp.getBoundingClientRect();
-  const top = r.bottom + window.scrollY + 4;   // absolute = viewport + scroll offset
-  const lft = r.left + window.scrollX;
+  const top = r.bottom + window.scrollY + 4;
+  const lft = r.left   + window.scrollX;
   box.style.top   = top + 'px';
   box.style.left  = lft + 'px';
   box.style.width = Math.max(r.width, 300) + 'px';
