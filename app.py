@@ -135,12 +135,12 @@ def fetch_single_city(city, coords):
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
         f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
-        f"weather_code,wind_speed_10m,surface_pressure,visibility,"
-        f"uv_index,precipitation_probability,is_day"
+        f"weather_code,wind_speed_10m,surface_pressure,visibility,uv_index,is_day"
         f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,"
-        f"weather_code,wind_speed_10m,precipitation_probability,visibility,uv_index"
+        f"weather_code,wind_speed_10m,precipitation_probability,visibility,uv_index,"
+        f"precipitation"
         f"&daily=weather_code,temperature_2m_max,temperature_2m_min,"
-        f"sunrise,sunset,precipitation_probability_max"
+        f"sunrise,sunset,precipitation_probability_max,precipitation_sum"
         f"&timezone=auto&forecast_days=2"
     )
     aqi_url = (
@@ -160,10 +160,10 @@ def fetch_single_city(city, coords):
             feels    = round(cur.get("apparent_temperature", temp))
             wind     = round(cur.get("wind_speed_10m", 0))
             pressure = round(cur.get("surface_pressure", 1013))
-            vis      = round(cur.get("visibility", 10000) / 1000, 1)
+            vis      = round(min(cur.get("visibility", 10000), 50000) / 1000, 1)
             uv       = round(cur.get("uv_index", 0), 1)
-            rain_now = cur.get("precipitation_probability", 0) or 0
             wcode    = cur.get("weather_code", 0)
+            # precipitation_probability not in current= — filled from hourly after now_h found
             icon, condition = get_weather_icon(wcode)
 
             # ── Find current hour index in hourly array ─────────────────────
@@ -174,6 +174,9 @@ def fetch_single_city(city, coords):
                 now_h = next(i for i, t in enumerate(h_times) if t[:13] == now_str)
             except StopIteration:
                 now_h = datetime.now().hour
+            # Rain probability from hourly at current hour (not in current= endpoint)
+            h_rain_all = hourly.get("precipitation_probability", [0]*48)
+            rain_now   = int(h_rain_all[min(now_h, len(h_rain_all)-1)]) if h_rain_all else 0
 
             # ── Sunrise / Sunset ────────────────────────────────────────────
             daily   = data.get("daily", {})
@@ -3044,38 +3047,57 @@ applyLang(_currentLang);
 // ── PWA INSTALL ────────────────────────────────────────────────────────────
 let _pwaPrompt = null;
 
+// Service worker register — must happen before beforeinstallprompt fires
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then(reg => console.log('[WD] SW registered', reg.scope))
+    .catch(err => console.warn('[WD] SW failed:', err));
+}
+
+function _showPWABanner() {
+  const banner = document.getElementById('pwa-banner');
+  const btn    = document.getElementById('install-btn');
+  if (btn) btn.style.display = 'inline-flex';
+  // Show banner only if not recently dismissed (reset every 3 days)
+  const dismissed = parseInt(localStorage.getItem('wd-pwa-dismissed') || '0');
+  const threeDays = 3 * 24 * 60 * 60 * 1000;
+  if (!dismissed || (Date.now() - dismissed) > threeDays) {
+    setTimeout(() => {
+      if (banner && _pwaPrompt) banner.classList.add('show');
+    }, 3000);
+  }
+}
+
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _pwaPrompt = e;
-  // Show install button in toolbar
-  const btn = document.getElementById('install-btn');
-  if (btn) btn.style.display = 'inline-flex';
-  // Show banner after 5 seconds
-  setTimeout(() => {
-    const banner = document.getElementById('pwa-banner');
-    if (banner && !localStorage.getItem('wd-pwa-dismissed')) {
-      banner.classList.add('show');
-    }
-  }, 5000);
+  _showPWABanner();
+});
+
+// Chrome sometimes fires beforeinstallprompt before our listener
+// Re-check on load in case we missed it
+window.addEventListener('load', () => {
+  if (_pwaPrompt) _showPWABanner();
 });
 
 async function installPWA() {
-  if (!_pwaPrompt) return;
-  _pwaPrompt.prompt();
-  const { outcome } = await _pwaPrompt.userChoice;
-  if (outcome === 'accepted') {
-    localStorage.setItem('wd-pwa-dismissed', '1');
-    const banner = document.getElementById('pwa-banner');
-    if (banner) banner.classList.remove('show');
-    const btn = document.getElementById('install-btn');
-    if (btn) btn.style.display = 'none';
+  if (!_pwaPrompt) {
+    // Prompt already used — show instructions
+    alert('To install: tap browser menu → "Add to Home Screen" / "Install app"');
+    return;
   }
+  try {
+    await _pwaPrompt.prompt();
+    const { outcome } = await _pwaPrompt.userChoice;
+    if (outcome === 'accepted') {
+      localStorage.setItem('wd-pwa-dismissed', Date.now().toString());
+      const banner = document.getElementById('pwa-banner');
+      if (banner) banner.classList.remove('show');
+      const btn = document.getElementById('install-btn');
+      if (btn) btn.style.display = 'none';
+    }
+  } catch(e) { console.warn('[WD] Install failed:', e); }
   _pwaPrompt = null;
-}
-
-// Register service worker for PWA
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 // ── SMART WEATHER ALERTS ──────────────────────────────────────────────────
