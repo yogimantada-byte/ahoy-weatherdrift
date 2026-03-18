@@ -3058,14 +3058,10 @@ function _showPWABanner() {
   const banner = document.getElementById('pwa-banner');
   const btn    = document.getElementById('install-btn');
   if (btn) btn.style.display = 'inline-flex';
-  // Show banner only if not recently dismissed (reset every 3 days)
-  const dismissed = parseInt(localStorage.getItem('wd-pwa-dismissed') || '0');
-  const threeDays = 3 * 24 * 60 * 60 * 1000;
-  if (!dismissed || (Date.now() - dismissed) > threeDays) {
-    setTimeout(() => {
-      if (banner && _pwaPrompt) banner.classList.add('show');
-    }, 3000);
-  }
+  // Show banner every page load/refresh — no dismiss check
+  setTimeout(() => {
+    if (banner && _pwaPrompt) banner.classList.add('show');
+  }, 2000);
 }
 
 window.addEventListener('beforeinstallprompt', e => {
@@ -3090,7 +3086,7 @@ async function installPWA() {
     await _pwaPrompt.prompt();
     const { outcome } = await _pwaPrompt.userChoice;
     if (outcome === 'accepted') {
-      localStorage.setItem('wd-pwa-dismissed', Date.now().toString());
+      // Banner hidden after install — reappears on next page load
       const banner = document.getElementById('pwa-banner');
       if (banner) banner.classList.remove('show');
       const btn = document.getElementById('install-btn');
