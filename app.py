@@ -34,9 +34,9 @@ def _save_data():
 _cache = {"weather": None, "timestamp": 0, "last_updated": "Never"}
 _custom_cities  = {}   # user-added cities (persisted to disk)
 _deleted_cities = set()  # built-in cities hidden by user (persisted to disk)
-REFRESH_INTERVAL  = 900   # 15 min — open-meteo data updates every 15min anyway
-CACHE_STALE_SECS  = 840   # consider stale after 14 min
-STARTUP_FETCH_DELAY = 2   # seconds before first fetch after server start
+REFRESH_INTERVAL  = 600   # 10 min refresh
+CACHE_STALE_SECS  = 570   # stale after 9.5 min
+STARTUP_FETCH_DELAY = 1   # seconds before first fetch after server start
 
 # Load persisted data on startup
 _load_data()
@@ -107,17 +107,29 @@ CITIES = {
 COUNTRY_NAMES = {"IN": "🇮🇳 India", "JP": "🇯🇵 Japan", "RU": "🇷🇺 Russia", "ZA": "🇿🇦 South Africa", "CUSTOM": "🌍 Custom"}
 
 def get_weather_icon(weathercode):
-    if weathercode == 0:             return "☀️",  "Clear Sky"
-    elif weathercode in [1, 2]:      return "⛅",  "Partly Cloudy"
-    elif weathercode == 3:           return "☁️",  "Overcast"
-    elif weathercode in [45, 48]:    return "🌫️", "Foggy"
-    elif weathercode in [51, 53, 55]:return "🌦️", "Drizzle"
-    elif weathercode in [61, 63, 65]:return "🌧️", "Rainy"
-    elif weathercode in [71,73,75,77]:return "❄️", "Snowy"
-    elif weathercode in [80, 81, 82]:return "🌧️", "Rain Showers"
-    elif weathercode in [85, 86]:    return "🌨️", "Snow Showers"
-    elif weathercode in [95,96,99]:  return "⛈️",  "Stormy"
-    else:                            return "🌡️", "Unknown"
+    """WMO weather code to emoji + label.
+    Full spec: https://open-meteo.com/en/docs (weathercode table)
+    """
+    wc = int(weathercode) if weathercode else 0
+    if wc == 0:                  return "☀️",  "Clear Sky"
+    elif wc == 1:                return "🌤️",  "Mainly Clear"
+    elif wc == 2:                return "⛅",  "Partly Cloudy"
+    elif wc == 3:                return "☁️",  "Overcast"
+    elif wc in [45, 48]:        return "🌫️", "Foggy"
+    elif wc in [51, 53, 55]:    return "🌦️", "Drizzle"
+    elif wc in [56, 57]:        return "🌨️", "Freezing Drizzle"
+    elif wc in [61, 63]:        return "🌧️", "Rainy"
+    elif wc == 65:              return "🌧️", "Heavy Rain"
+    elif wc in [66, 67]:        return "🌨️", "Freezing Rain"
+    elif wc in [71, 73]:        return "❄️",  "Snowy"
+    elif wc == 75:              return "❄️",  "Heavy Snow"
+    elif wc == 77:              return "🌨️", "Snow Grains"
+    elif wc in [80, 81]:        return "🌦️", "Rain Showers"
+    elif wc == 82:              return "🌧️", "Heavy Showers"
+    elif wc in [85, 86]:        return "🌨️", "Snow Showers"
+    elif wc == 95:              return "⛈️",  "Thunderstorm"
+    elif wc in [96, 99]:        return "⛈️",  "Thunderstorm & Hail"
+    else:                       return "🌡️", "Unknown"
 
 def get_aqi_label(aqi):
     if aqi <= 50:   return "Good",        "#00c853"
@@ -156,13 +168,14 @@ def fetch_single_city(city, coords):
             # ── Current conditions (accurate real-time values) ──────────────
             cur  = data["current"]
             temp     = round(cur["temperature_2m"])
-            humidity = cur.get("relative_humidity_2m", 60)
-            feels    = round(cur.get("apparent_temperature", temp))
-            wind     = round(cur.get("wind_speed_10m", 0))
-            pressure = round(cur.get("surface_pressure", 1013))
-            vis      = round(min(cur.get("visibility", 10000), 50000) / 1000, 1)
-            uv       = round(cur.get("uv_index", 0), 1)
-            wcode    = cur.get("weather_code", 0)
+            humidity = int(cur.get("relative_humidity_2m") or 60)
+            feels    = round(cur.get("apparent_temperature") or temp)
+            wind     = round(cur.get("wind_speed_10m") or 0)
+            pressure = round(cur.get("surface_pressure") or 1013)
+            raw_vis  = cur.get("visibility")
+            vis      = round(min(float(raw_vis), 50000) / 1000, 1) if raw_vis else 10.0
+            uv       = round(float(cur.get("uv_index") or 0), 1)
+            wcode    = int(cur.get("weather_code") or 0)
             # precipitation_probability not in current= — filled from hourly after now_h found
             icon, condition = get_weather_icon(wcode)
 
@@ -260,14 +273,15 @@ def refresh_cache():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Fetching weather for all cities...")
     try:
         data = get_weather_data()
-        if data:                        # only update if we got real data
+        # Only update if we got real data for at least half the cities
+        if data and len(data) >= max(1, len(get_all_cities()) // 2):
             _cache["weather"]      = data
             _cache["timestamp"]    = time.time()
             _cache["last_updated"] = datetime.now().strftime("%H:%M IST")
             elapsed = round(time.time() - t0, 1)
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Cache refreshed — {len(data)} cities in {elapsed}s")
         else:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Refresh skipped — no data returned")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Refresh skipped — insufficient data ({len(data) if data else 0} cities)")
     except Exception as e:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] Refresh error: {e}")
 
@@ -1390,7 +1404,9 @@ function setChartMode(mode, btn) {
   chartMode = mode;
   document.querySelectorAll('.chart-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  const city = currentCity || Object.keys(histData)[0];
+  // Use history-city-label as source of truth for which city is showing
+  const labelEl = document.getElementById('history-city-label');
+  const city = (labelEl && labelEl.textContent.trim()) || currentCity || Object.keys(histData)[0];
   if (city && histData[city]) drawChart(histData[city]);
 }
 
@@ -1410,8 +1426,13 @@ function updateHistoryChart(city, weatherObj) {
 function drawChart(points) {
   const canvas = document.getElementById('history-chart');
   if (!canvas) return;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr  = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
+  // Guard: if canvas has no dimensions yet, retry after layout
+  if (rect.width === 0 || rect.height === 0) {
+    setTimeout(() => drawChart(points), 150);
+    return;
+  }
   canvas.width  = rect.width  * dpr;
   canvas.height = rect.height * dpr;
   const ctx = canvas.getContext('2d');
@@ -2716,7 +2737,15 @@ function autoRefresh() {
     // Update featured panel + chart for current city
     if (currentCity) {
       const w = data.weather.find(x => x.city === currentCity);
-      if (w) { updateFeaturedPanel(w); drawChart(histData[currentCity]); }
+      if (w) {
+        updateFeaturedPanel(w);
+        if (histData[currentCity]) drawChart(histData[currentCity]);
+      }
+    } else {
+      // No city selected — redraw chart for featured city
+      const labelEl = document.getElementById('history-city-label');
+      const shownCity = labelEl && labelEl.textContent.trim();
+      if (shownCity && histData[shownCity]) drawChart(histData[shownCity]);
     }
 
     // Refresh map markers
@@ -2763,18 +2792,30 @@ document.querySelectorAll('.city-card').forEach(card=>{
 const ft=document.getElementById('feat-temp');
 if(ft) ft.dataset.rawc = parseFloat(ft.textContent.replace(/[^0-9.\-]/g,'')) || 25;
 
-// Draw chart immediately with seeded data
+// Draw chart AFTER page fully loaded and canvas has real dimensions
+// Using ResizeObserver to detect when canvas is actually visible
 const _initCity = document.getElementById('history-city-label')?.textContent?.trim();
 if (_initCity && histData[_initCity]) {
-  setTimeout(()=>drawChart(histData[_initCity]), 200);
+  const canvas = document.getElementById('history-chart');
+  if (canvas) {
+    // Use ResizeObserver — fires when canvas gets real dimensions
+    const ro = new ResizeObserver(() => {
+      if (canvas.getBoundingClientRect().width > 0) {
+        ro.disconnect();
+        drawChart(histData[_initCity]);
+      }
+    });
+    ro.observe(canvas);
+  }
+  // Fallback — draw after 800ms regardless
+  setTimeout(() => drawChart(histData[_initCity]), 800);
 }
 
-// Run immediately after 3s (catches fresh data from server startup refresh)
-// then poll every 15 min (matches server REFRESH_INTERVAL)
+// Run immediately after 1s — get fresh weather ASAP
 setTimeout(() => {
   autoRefresh();
-  setInterval(autoRefresh, 900000);   // 15 min
-}, 3000);
+  setInterval(autoRefresh, 300000);   // 5 min poll
+}, 1000);
 
 // Twemoji
 if (typeof twemoji!=='undefined') {
@@ -3058,10 +3099,7 @@ function _showPWABanner() {
   const banner = document.getElementById('pwa-banner');
   const btn    = document.getElementById('install-btn');
   if (btn) btn.style.display = 'inline-flex';
-  // Show banner every page load/refresh — no dismiss check
-  setTimeout(() => {
-    if (banner && _pwaPrompt) banner.classList.add('show');
-  }, 2000);
+  setTimeout(() => { if (banner) banner.classList.add('show'); }, 2000);
 }
 
 window.addEventListener('beforeinstallprompt', e => {
@@ -3070,10 +3108,10 @@ window.addEventListener('beforeinstallprompt', e => {
   _showPWABanner();
 });
 
-// Chrome sometimes fires beforeinstallprompt before our listener
-// Re-check on load in case we missed it
 window.addEventListener('load', () => {
-  if (_pwaPrompt) _showPWABanner();
+  // Show banner regardless — if already installed, _pwaPrompt is null
+  // but we still show the banner with fallback instructions
+  _showPWABanner();
 });
 
 async function installPWA() {
@@ -3767,43 +3805,54 @@ def pwa_manifest():
 def service_worker():
     """Minimal service worker for PWA — cache-first for static, network-first for API."""
     sw_code = """
-const CACHE = 'weatherdrift-v3';
-const STATIC = ['/'];
+const CACHE = 'weatherdrift-v4';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
+  // Clear ALL old caches on activate
   e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    Promise.all(keys.map(k => caches.delete(k)))
   ));
   self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Network-first for API calls
+
+  // ALWAYS network-first for HTML pages — weather data must be fresh
+  if (url.pathname === '/' || url.pathname === '') {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
+  // Network-first for all API calls
   if (url.pathname.startsWith('/api/')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('{}', {headers:{'Content-Type':'application/json'}})));
+    return;
+  }
+
+  // Cache-first for static assets only (leaflet, fonts, icons)
+  if (url.pathname.match(/\.(css|js|svg|png|woff2?)$/)) {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(resp => {
+          if (resp && resp.status === 200) {
+            const clone = resp.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return resp;
+        });
+      })
     );
     return;
   }
-  // Cache-first for everything else
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(resp => {
-        if (resp && resp.status === 200) {
-          const clone = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return resp;
-      });
-    })
-  );
+
+  // Everything else — network only
+  e.respondWith(fetch(e.request));
 });
 """
     from flask import Response
