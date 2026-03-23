@@ -36,7 +36,7 @@ _custom_cities  = {}   # user-added cities (persisted to disk)
 _deleted_cities = set()  # built-in cities hidden by user (persisted to disk)
 REFRESH_INTERVAL  = 600   # 10 min refresh
 CACHE_STALE_SECS  = 570   # stale after 9.5 min
-STARTUP_FETCH_DELAY = 1   # seconds before first fetch after server start
+STARTUP_FETCH_DELAY = 3   # seconds before first fetch after server start
 
 # Load persisted data on startup
 _load_data()
@@ -155,13 +155,11 @@ def fetch_single_city(city, coords):
         f"sunrise,sunset,precipitation_probability_max,precipitation_sum"
         f"&timezone=auto&forecast_days=2"
     )
-    aqi_url = (
-        f"https://air-quality-api.open-meteo.com/v1/air-quality"
-        f"?latitude={lat}&longitude={lon}&current=us_aqi&timezone=auto"
-    )
+    # AQI fetched separately in batch — skip per-city AQI call to reduce load
+    aqi_url = None
     for attempt in range(3):
         try:
-            r = requests.get(url, timeout=15)
+            r = requests.get(url, timeout=25)
             r.raise_for_status()
             data = r.json()
 
@@ -198,12 +196,8 @@ def fetch_single_city(city, coords):
             sunrise_t = sunrise.split("T")[-1][:5] if sunrise else "06:00"
             sunset_t  = sunset.split("T")[-1][:5]  if sunset  else "18:00"
 
-            # ── AQI ─────────────────────────────────────────────────────────
+            # ── AQI — fetched separately in batch after weather ──────────────
             aqi_val = 50
-            try:
-                aq      = requests.get(aqi_url, timeout=8).json()
-                aqi_val = int(aq.get("current", {}).get("us_aqi") or 50)
-            except: pass
             aqi_label, aqi_color = get_aqi_label(aqi_val)
 
             # ── Hourly strip (next 8 slots × 3h) ───────────────────────────
@@ -238,32 +232,59 @@ def fetch_single_city(city, coords):
         except Exception as e:
             print(f"[{city}] Attempt {attempt+1} failed: {e}")
             time.sleep(1)
-    # Fallback
-    return {
-        "city": city, "country": coords["country"],
-        "temp": 25, "feels_like": 23, "humidity": 65, "wind_speed": 12,
-        "condition": "Partly Cloudy", "icon": "⛅",
-        "uv_index": 4, "visibility": 10.0, "pressure": 1013,
-        "sunrise": "06:15", "sunset": "18:30", "rain_prob": 10,
-        "aqi": 50, "aqi_label": "Good", "aqi_color": "#00c853",
-        "hourly": [], "lat": coords["lat"], "lon": coords["lon"],
-    }
+    # All retries failed — return None so caller skips this city
+    print(f"[{city}] All retries failed — skipping")
+    return None
 
 def get_all_cities():
     """Return all active cities — built-ins minus deleted ones, plus custom additions."""
     active = {k: v for k, v in CITIES.items() if k not in _deleted_cities}
     return {**active, **_custom_cities}
 
+def _fetch_aqi_batch(cities_coords):
+    """Fetch AQI for multiple cities using Open-Meteo bulk — one call per city but async."""
+    def _one(city, coords):
+        try:
+            url = (f"https://air-quality-api.open-meteo.com/v1/air-quality"
+                   f"?latitude={coords['lat']}&longitude={coords['lon']}"
+                   f"&current=us_aqi&timezone=auto")
+            r = requests.get(url, timeout=10)
+            val = int(r.json().get("current", {}).get("us_aqi") or 50)
+            return city, val
+        except:
+            return city, 50
+
+    aqi = {}
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        for city, val in ex.map(lambda x: _one(*x), cities_coords.items()):
+            aqi[city] = val
+    return aqi
+
 def get_weather_data():
     all_c = get_all_cities()
     results = {}
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:  # Render free: 512MB
         futures = {executor.submit(fetch_single_city, city, coords): city
                    for city, coords in all_c.items()}
         for future in as_completed(futures):
             city = futures[future]
             result = future.result()
             if result: results[city] = result
+
+    # Fetch AQI in a second pass (less critical, separate from weather)
+    if results:
+        try:
+            coords_for_aqi = {c: all_c[c] for c in results if c in all_c}
+            aqi_map = _fetch_aqi_batch(coords_for_aqi)
+            for city, w in results.items():
+                aqi_val = aqi_map.get(city, 50)
+                label, color = get_aqi_label(aqi_val)
+                w["aqi"] = aqi_val
+                w["aqi_label"] = label
+                w["aqi_color"] = color
+        except Exception as e:
+            print(f"AQI batch error: {e}")
+
     return [results[c] for c in all_c if c in results]
 
 def refresh_cache():
@@ -2725,12 +2746,18 @@ function autoRefresh() {
     // Record history for all cities
     data.weather.forEach(w => {
       if (!histData[w.city]) histData[w.city] = [];
-      histData[w.city].push({
-        t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
-        temp: w.temp,
-        humidity: w.humidity ?? 65,
-        wind: w.wind_speed ?? 12,
-      });
+      // Only push if data actually changed (avoid flat line of identical points)
+      const last = histData[w.city][histData[w.city].length - 1];
+      const newTemp = w.temp ?? 25;
+      if (!last || last.temp !== newTemp || histData[w.city].length === 1) {
+        histData[w.city].push({
+          t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+          temp: newTemp,
+          humidity: w.humidity ?? 65,
+          wind: w.wind_speed ?? 12,
+        });
+        if (histData[w.city].length > 24) histData[w.city].shift();
+      }
       if (histData[w.city].length > 20) histData[w.city].shift();
     });
 
@@ -2779,12 +2806,13 @@ document.querySelectorAll('.city-card').forEach(card=>{
       humidity,
       wind_speed: wind,
     });
-    // Seed initial history point so chart isn't empty
-    if (!histData[city]) histData[city] = [];
-    histData[city].push({
-      t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
-      temp: rawC, humidity, wind,
-    });
+    // Seed ONE initial history point per city
+    if (!histData[city]) {
+      histData[city] = [{
+        t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+        temp: rawC, humidity, wind,
+      }];
+    }
   }
 });
 
