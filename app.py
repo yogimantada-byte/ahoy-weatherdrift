@@ -2076,6 +2076,16 @@ function selectCity(name) {
       updateFeaturedPanel(d);
       updateForecast(d.city, d.forecast||[]);
       document.getElementById('featured-loading').style.display='none';
+      // Update history with fresh data point and redraw chart
+      const now = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      if (!histData[d.city]) histData[d.city] = [];
+      const last = histData[d.city][histData[d.city].length - 1];
+      if (!last || last.t !== now) {
+        histData[d.city].push({ t: now, temp: d.temp??25, humidity: d.humidity??65, wind: d.wind_speed??12 });
+        if (histData[d.city].length > 24) histData[d.city].shift();
+      }
+      document.getElementById('history-city-label').textContent = d.city;
+      drawChart(histData[d.city]);
     })
     .catch(()=>{
       document.getElementById('featured-loading').style.display='none';
@@ -2746,12 +2756,14 @@ function autoRefresh() {
     // Record history for all cities
     data.weather.forEach(w => {
       if (!histData[w.city]) histData[w.city] = [];
-      // Only push if data actually changed (avoid flat line of identical points)
-      const last = histData[w.city][histData[w.city].length - 1];
+      // Push every autoRefresh — shows live trend over time
       const newTemp = w.temp ?? 25;
-      if (!last || last.temp !== newTemp || histData[w.city].length === 1) {
+      const now = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      // Avoid duplicate entries within same minute
+      const last = histData[w.city][histData[w.city].length - 1];
+      if (!last || last.t !== now) {
         histData[w.city].push({
-          t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+          t: now,
           temp: newTemp,
           humidity: w.humidity ?? 65,
           wind: w.wind_speed ?? 12,
@@ -2806,12 +2818,16 @@ document.querySelectorAll('.city-card').forEach(card=>{
       humidity,
       wind_speed: wind,
     });
-    // Seed ONE initial history point per city
+    // Seed 3 initial history points so chart shows a line not a dot
     if (!histData[city]) {
-      histData[city] = [{
-        t: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
-        temp: rawC, humidity, wind,
-      }];
+      const now = new Date();
+      histData[city] = [-8, -4, 0].map(minOffset => {
+        const t = new Date(now.getTime() + minOffset * 60000);
+        return {
+          t: t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+          temp: rawC, humidity, wind,
+        };
+      });
     }
   }
 });
